@@ -112,7 +112,9 @@ class AuthController {
                 message: 'Đăng ký thất bại, vui lòng thử lại sau'
             })
         }
+
     }
+    
     public login = async (req: Request, res: Response): Promise<void> => {
         try {
             const { email, password } = req.body;
@@ -198,7 +200,122 @@ class AuthController {
                 message: 'Đăng nhập thất bại, vui lòng thử lại sau'
             });
         }
+    };
+    public LoginAdmin = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { email, password } = req.body;
+            // Validate input
+            if (!email || !password) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng nhập email và mật khẩu'
+                });
+                return;
+            }
+
+            // Find admin user by email and role
+            const user = await db.selectFrom('users')
+                .select([
+                    'id', 
+                    'email',
+                    'password',
+                    'is_active',
+                    'created_at',
+                    'updated_at'
+                ])
+                .where('email', '=', email)
+                .where('role', '=', 'admin')
+                .executeTakeFirst();
+
+            if (!user) {
+                res.status(401).json({
+                    success: false,
+                    message: 'Email không tồn tại hoặc không phải là tài khoản admin'
+                });
+                return;
+            }
+
+            // Direct password comparison
+            if (user.password!== password) {
+                res.status(401).json({
+                    success: false,
+                    message: 'Mật khẩu không chính xác'
+                });
+                return;
+            }
+
+            // Generate access token
+            const { token, expiresIn } = Token.create({
+                userId: user.id,
+                type: 'access'
+            });
+
+            // Generate and store refresh token
+            const refreshToken = await Token.createRefreshToken({
+                userId: user.id,
+                type: 'refresh'
+            });
+
+            await db.updateTable('users')
+                .set({ refresh_token: refreshToken })
+                .where('id', '=', user.id)
+                .execute();
+
+            res.status(200).json({
+                success: true,
+                message: 'Đăng nhập admin thành công',
+                data: {
+                    token,
+                    refreshToken,
+                    expiresIn,
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        is_active: user.is_active,
+                        created_at: user.created_at,
+                        updated_at: user.updated_at
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Admin login error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Đăng nhập admin thất bại, vui lòng thử lại sau'
+            });
+        }
+
+    };
+    public Logout = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { userId } = req.body;
+            if (!userId) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng cung cấp userId'
+                });
+                return;
+            }
+
+            // Invalidate the refresh token in the database
+            await db.updateTable('users')
+                .set({ refresh_token: null })
+                .where('id', '=', userId)
+                .execute();
+
+            res.status(200).json({
+                success: true,
+                message: 'Đăng xuất thành công'
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Đăng xuất thất bại, vui lòng thử lại sau'
+            });
+        }
     }
 }
+
 
 export default new AuthController();

@@ -20,6 +20,7 @@ class CaptchaController {
                 message: 'Không thể tạo mã xác thực'
             });
         }
+
     };
 }
 
