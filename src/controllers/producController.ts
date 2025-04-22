@@ -10,9 +10,21 @@ class ProductController {
                 .selectAll()
                 .execute();
 
+            const productsWithImages = await Promise.all(products.map(async (product) => {
+                const images = await db
+                    .selectFrom('product_images')
+                    .selectAll()
+                    .where('product_id', '=', product.id)
+                    .execute();
+                return {
+                    ...product,
+                    images
+                };
+            }));
+
             res.status(200).json({
                 success: true,
-                data: products
+                data: productsWithImages
             });
         } catch (error) {
             console.error('Get products error:', error);
@@ -156,9 +168,10 @@ class ProductController {
     public update = async (req: Request, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
-            const updateData: UpdateProductDTO = req.body;
+            const { images, ...updateData } = req.body;
+            const updateProductData: UpdateProductDTO = updateData;
 
-            if (!updateData.name) {
+            if (!updateProductData.name) {
                 res.status(400).json({
                     success: false,
                     message: 'Vui lòng nhập tên sản phẩm'
@@ -166,49 +179,103 @@ class ProductController {
                 return;
             }
 
-            // Check if product exists and name is unique in one query
-            const [product, existingProduct] = await Promise.all([
-                db.selectFrom('products')
+            await db.transaction().execute(async (trx) => {
+                // Kiểm tra nếu sản phẩm tồn tại
+                const product = await trx.selectFrom('products')
                     .select(['id'])
                     .where('id', '=', Number(id))
-                    .executeTakeFirst(),
-                db.selectFrom('products')
+                    .executeTakeFirst();
+
+                if (!product) {
+                    res.status(404).json({
+                        success: false,
+                        message: 'Không tìm thấy sản phẩm'
+                    });
+                    return;
+                }
+
+                // Kiểm tra nếu tên sản phẩm đã tồn tại cho các sản phẩm khác
+                const existingProduct = await trx.selectFrom('products')
                     .select(['id'])
-                    .where('name', '=', updateData.name)
+                    .where('name', '=', updateProductData.name)
                     .where('id', '!=', Number(id))
-                    .executeTakeFirst()
-            ]);
+                    .executeTakeFirst();
 
-            if (!product) {
-                res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy sản phẩm'
+                if (existingProduct) {
+                    res.status(409).json({
+                        success: false,
+                        message: 'Tên sản phẩm đã tồn tại'
+                    });
+                    return;
+                }
+
+                // Cập nhật thời gian cập nhật
+                const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                const updatedData = {
+                    ...updateProductData,
+                    updated_at: timestamp
+                };
+
+                // Cập nhật sản phẩm
+                await trx.updateTable('products')
+                    .set(updatedData)
+                    .where('id', '=', Number(id))
+                    .execute();
+
+                // Lấy lại sản phẩm sau khi cập nhật
+                const updatedProduct = await trx.selectFrom('products')
+                    .selectAll()
+                    .where('id', '=', Number(id))
+                    .executeTakeFirst();
+
+                // Cập nhật hình ảnh nếu có
+                if (images) {
+                    // Xóa các hình ảnh cũ của sản phẩm
+                    await trx.deleteFrom('product_images')
+                        .where('product_id', '=', Number(id))
+                        .execute();
+
+                    // Thêm các hình ảnh mới
+                    await trx.insertInto('product_images')
+                        .values(images.map((img: {image_url: string, sort_order?: number}, index: number) => ({
+                            product_id: Number(id),
+                            image_url: img.image_url,
+                            sort_order: img.sort_order ?? index,
+                            created_at: timestamp
+                        })))
+                        .execute();
+
+                    // Cập nhật main_image_url nếu cần
+                    if (images.length > 0 && !updateProductData.main_image_url) {
+                        await trx.updateTable('products')
+                            .set({
+                                main_image_url: images[0].image_url,
+                                updated_at: timestamp
+                            })
+                            .where('id', '=', Number(id))
+                            .execute();
+                    }
+                }
+
+                // Lấy lại sản phẩm sau khi cập nhật cùng với hình ảnh
+                const finalProduct = await trx.selectFrom('products')
+                    .selectAll()
+                    .where('id', '=', Number(id))
+                    .executeTakeFirst();
+
+                const finalImages = await trx.selectFrom('product_images')
+                    .selectAll()
+                    .where('product_id', '=', Number(id))
+                    .execute();
+
+                res.status(200).json({
+                    success: true,
+                    message: 'Cập nhật sản phẩm thành công',
+                    data: {
+                        ...updatedProduct,
+                        images: finalImages
+                    }
                 });
-                return;
-            }
-
-            if (existingProduct) {
-                res.status(409).json({
-                    success: false,
-                    message: 'Tên sản phẩm đã tồn tại'
-                });
-                return;
-            }
-
-            // Update with returning clause to get updated product in one query
-            const updatedProduct = await db.updateTable('products')
-                .set({
-                    ...updateData,
-                    updated_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
-                })
-                .where('id', '=', Number(id))
-                .returningAll()
-                .executeTakeFirst();
-
-            res.status(200).json({
-                success: true,
-                message: 'Cập nhật sản phẩm thành công',
-                data: updatedProduct
             });
         } catch (error) {
             console.error('Update product error:', error);
