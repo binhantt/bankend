@@ -1,9 +1,40 @@
 import { db } from '../config/database'
 import * as createUsers from '../migrations/001_create_users'
+import * as createCategories from '../migrations/002_create_categories'
+import * as createProducts from '../migrations/003_create_products'
+import * as createOrderItems from '../migrations/004_create_order_items'
+import * as createOrders from '../migrations/005_create_orders'
+
+async function runMigration(migration: { up: Function, down: Function }, action: 'up' | 'down') {
+  try {
+    await migration[action](db)
+    console.log(`✅ Migration executed successfully`)
+    return true
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ER_TABLE_EXISTS_ERROR') {
+      console.log(`⚠️ Table already exists, skipping`)
+      return true
+    }
+    console.error(`❌ Migration failed: ${error}`)
+    return false
+  }
+}
 
 async function migrateToLatest() {
-  await createUsers.up(db)
-  console.log('✅ Migrations completed')
+  const migrations = [
+    { name: 'users', migration: createUsers },
+    { name: 'categories', migration: createCategories },
+    { name: 'products', migration: createProducts },
+    { name: 'order_items', migration: createOrderItems },
+    { name: 'orders', migration: createOrders }
+  ]
+
+  for (const { name, migration } of migrations) {
+    console.log(`Running migration for ${name}...`)
+    const success = await runMigration(migration, 'up')
+    if (!success) return
+  }
+  console.log('✅ All migrations completed successfully')
 }
 
 async function migrateDown() {

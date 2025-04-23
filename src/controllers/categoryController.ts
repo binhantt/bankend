@@ -4,13 +4,36 @@ import { db } from '../config/database';
 class CategoryController {
     public getAll = async (req: Request, res: Response): Promise<void> => {
         try {
+            // Lấy tham số page và limit từ query string
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 5;
+            const offset = (page - 1) * limit;
+
+            // Truy vấn danh mục với phân trang
             const categories = await db.selectFrom('categories')
                 .select(['id', 'name', 'created_at', 'updated_at'])
+                .limit(limit)
+                .offset(offset)
                 .execute();
+
+            // Truy vấn để lấy tổng số danh mục
+            const totalCountResult = await db
+                .selectFrom('categories')
+                .select(({ fn }) => [fn.count('id').as('total')])
+                .executeTakeFirst();
+
+            const total = totalCountResult ? Number(totalCountResult.total) : 0;
+            const totalPages = Math.ceil(total / limit);
 
             res.status(200).json({
                 success: true,
-                data: categories
+                data: categories,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalItems: total,
+                    itemsPerPage: limit
+                }
             });
         } catch (error) {
             console.error('Get categories error:', error);
@@ -185,6 +208,71 @@ class CategoryController {
             });
         }
     }
+    public getById = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+            const category = await db.selectFrom('categories')
+               .select(['id', 'name', 'created_at', 'updated_at'])
+               .where('id', '=', Number(id))
+               .executeTakeFirst(); 
+            if (!category) {
+                res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy danh mục'
+                });
+                return;
+            }
+            res.status(200).json({
+                success: true,
+                data: category
+            });
+        }catch (error) {
+            console.error('Get category by id error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Không thể lấy danh mục'
+            });
+        }
+    }
+
+    // Thêm phương thức tìm kiếm theo tên
+    public searchByName = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { name } = req.query;
+            if (!name) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng nhập tên danh mục để tìm kiếm'
+                });
+                return;
+            }
+
+            const categories = await db.selectFrom('categories')
+                .select(['id', 'name', 'created_at', 'updated_at'])
+                .where('name', 'like', `%${name}%`)
+                .execute();
+
+            if (categories.length === 0) {
+                res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy danh mục với tên đã cho'
+                });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                data: categories
+            });
+        } catch (error) {
+            console.error('Search categories by name error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Không thể tìm kiếm danh mục theo tên'
+            });
+        }
+    }
+    
 }
 
 export default new CategoryController();

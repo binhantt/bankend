@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "start": "ts-node src/index.ts",
-    "migrate": "ts-node src/config/migrator.ts"
+    "migrate": "ts-node src/config/migrator.ts",
+    "migrate:up": "ts-node src/config/migrator.ts",
+    "migrate:down": "ts-node src/config/migrator.ts down",
+    "migrate:down:all": "ts-node src/config/migrator.ts down-all",
+    "migrate:create": "node ./scripts/create-migration.js"
   },
   "keywords": [],
   "author": "",

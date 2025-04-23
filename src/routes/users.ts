@@ -3,10 +3,13 @@ import AuthController from '../controllers/authController';
 import CaptchaController from '../controllers/captchaController';
 import categoryController from '../controllers/categoryController';
 import productController from '../controllers/producController';
+import orderController from '../controllers/orderController';
 const router = Router();
 router.get('/generate', CaptchaController.generate);
 router.post('/register', AuthController.register);
 router.post('/login', AuthController.login);
 router.get('/categroy', categoryController.getAll); 
-router.get('/products', productController.getAll)
+router.get('/products', productController.getAll) ; 
+router.post('/order', orderController.createOrder);
+router.get('/orders', orderController.getOrders);
 export default router;

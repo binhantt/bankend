@@ -48,6 +48,18 @@ GET  /auth/generate   # Generate captcha
 ```bash
 git init
 ```
+2.table 
+```bash
+npx ts-node src/scripts/migrate.ts latest
+```
+3. Start the application:
+```bash
+npm run dev
+``` 
+4. Run the application:
+```bash
+npm start
+```
 
 ### Step 1: Clone Project
 ```bash
