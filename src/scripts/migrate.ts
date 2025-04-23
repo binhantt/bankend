@@ -4,6 +4,10 @@ import * as createCategories from '../migrations/002_create_categories'
 import * as createProducts from '../migrations/003_create_products'
 import * as createOrderItems from '../migrations/004_create_order_items'
 import * as createOrders from '../migrations/005_create_orders'
+import * as createWishlists from '../migrations/008_create_wishlists'
+import * as createDiscounts from '../migrations/009_create_discounts'
+import * as createOrderDiscounts from '../migrations/010_create_order_discounts'
+import * as createShippingMethods from '../migrations/011_create_shipping_methods'
 
 async function runMigration(migration: { up: Function, down: Function }, action: 'up' | 'down') {
   try {
@@ -26,7 +30,11 @@ async function migrateToLatest() {
     { name: 'categories', migration: createCategories },
     { name: 'products', migration: createProducts },
     { name: 'order_items', migration: createOrderItems },
-    { name: 'orders', migration: createOrders }
+    { name: 'orders', migration: createOrders },
+    { name: 'wishlists', migration: createWishlists },
+    { name: 'discounts', migration: createDiscounts },
+    { name: 'order_discounts', migration: createOrderDiscounts },
+    { name: 'shipping_methods', migration: createShippingMethods }
   ]
 
   for (const { name, migration } of migrations) {

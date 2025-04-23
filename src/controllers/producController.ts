@@ -5,15 +5,27 @@ import { Product, CreateProductDTO, UpdateProductDTO } from '../interfaces/produ
 class ProductController {
     public getAll = async (req: Request, res: Response): Promise<void> => {
         try {
-            // Lấy tham số page và limit từ query string
             const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 5;
+            const limit = parseInt(req.query.limit as string) || 10;
             const offset = (page - 1) * limit;
 
-            // Truy vấn sản phẩm với phân trang
-            const products = await db
-                .selectFrom('products')
+            // Thêm filter theo category và status nếu có
+            const categoryId = req.query.category_id;
+            const isActive = req.query.is_active;
+            
+            let query = db.selectFrom('products')
                 .selectAll()
+                .where('is_active', '=', true); // Mặc định chỉ lấy sản phẩm active
+
+            if (categoryId) {
+                query = query.where('category_id', '=', Number(categoryId));
+            }
+
+            if (isActive !== undefined) {
+                query = query.where('is_active', '=', isActive === 'true');
+            }
+
+            const products = await query
                 .limit(limit)
                 .offset(offset)
                 .execute();
@@ -56,7 +68,7 @@ class ProductController {
                 message: 'Không thể lấy danh sách sản phẩm'
             });
         }
-    }
+    } 
 
     public create = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -188,6 +200,42 @@ class ProductController {
         }
     }
 
+    public getById = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+
+            // Check if product exists
+            const product = await db.selectFrom('products')
+                .select(['id'])
+                .where('id', '=', Number(id))
+                .executeTakeFirst();
+
+            if (!product) {
+                res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy sản phẩm'
+                });
+                return;
+            }
+
+            // Delete the product
+            await db.deleteFrom('products')
+                .where('id', '=', Number(id))
+                .execute();
+
+            res.status(200).json({
+                success: true,
+                message: 'Xóa sản phẩm thành công'
+            });
+        } catch (error) {
+            console.error('Delete product error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Không thể xóa sản phẩm'
+            });
+        }
+    }
+
     public update = async (req: Request, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
@@ -253,6 +301,8 @@ class ProductController {
             });
         }
     }
+
+  
 }
 
 export default new ProductController();

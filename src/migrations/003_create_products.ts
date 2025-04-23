@@ -8,11 +8,15 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
         .addColumn('description', 'text')
         .addColumn('price', sql`decimal(10,2)`, (col) => col.notNull())
+        .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
         .addColumn('category_id', 'integer', (col) => 
             col.references('categories.id').onDelete('set null')
         )
         .addColumn('main_image_url', 'varchar(255)')
         .addColumn('stock', 'integer', (col) => col.notNull().defaultTo(0))
+        .addColumn('sku', 'varchar(50)', (col) => col.unique())
+        .addColumn('weight', sql`decimal(10,2)`)
+        .addColumn('dimensions', 'varchar(50)')
         .addColumn('created_at', 'timestamp', (col) => 
             col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
         )
@@ -40,4 +44,4 @@ export async function down(db: Kysely<any>): Promise<void> {
     // Drop tables in reverse order
     await db.schema.dropTable('product_images').ifExists().execute()
     await db.schema.dropTable('products').ifExists().execute()
-} 
+}

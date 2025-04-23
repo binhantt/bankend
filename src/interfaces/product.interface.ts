@@ -14,6 +14,10 @@ export interface Product {
     category_id?: number;
     main_image_url?: string;
     stock: number;
+    is_active?: boolean;
+    sku?: string;
+    weight?: number;
+    dimensions?: string;
     created_at?: Date;
     updated_at?: Date;
     images?: ProductImage[];
@@ -26,4 +30,6 @@ export interface CreateProductDTO extends Omit<Product, 'id' | 'created_at' | 'u
     }>;
 }
 
-export interface UpdateProductDTO extends Partial<CreateProductDTO> {}
+export interface UpdateProductDTO extends Partial<CreateProductDTO> {
+    id: number;
+}
