@@ -14,19 +14,19 @@ const app = express()
 app.use(accessLogger)
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: true, // Changed to true
-  saveUninitialized: true, // Changed to true
+  resave: true,
+  saveUninitialized: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 15, // 15 minutes
+    maxAge: 1000 * 60 * 15,
     httpOnly: true,
     sameSite: 'lax'
   }
 }));
 
-// Move CORS configuration before routes
+// Single CORS configuration that handles all origins
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -35,13 +35,6 @@ app.use(cors({
 // Basic middleware
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-app.use(cors({
-  origin: 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}))
-
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -56,7 +49,7 @@ app.use('/api/auth', userRoutes)
 
 const startServer = () => {
   try {
-    const PORT = process.env.PORT || 3000
+    const PORT = process.env.PORT || 3001
     const HOST = process.env.HOST || 'localhost'
     app.listen(PORT, () => {
       console.log('🚀 Server Information:')

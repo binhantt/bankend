@@ -1,9 +1,10 @@
 import { Router } from 'express'; 
 import CategoryController from '../controllers/categoryController';
-import UserController from '../controllers/authController'; // Assume this import
+import Auth from '../controllers/authController'; // Assume this import
 import  ProductController  from '../controllers/producController';
 import { buildGroupedRoutes } from '../utils/routeBuilder';
 import OrderController from '../controllers/orderController';
+import UserController from '../controllers/UserController'; // Import the UserController module from the correct path
 const router = Router();
 buildGroupedRoutes(router, [
   {
@@ -19,9 +20,15 @@ buildGroupedRoutes(router, [
   {
     basePath: '/login',
     routes: [
-     {method : "post" , path: "/", handler: UserController.LoginAdmin}
+     {method : "post" , path: "/", handler: Auth.LoginAdmin}
     ]
   } ,
+  {
+    basePath: '/logout',
+    routes: [
+      {method : "post", path: "/", handler: Auth.Logout}
+    ] ,
+  },
   {
     basePath : '/products', 
     routes : [
@@ -38,6 +45,15 @@ buildGroupedRoutes(router, [
       { method: 'get', path: '/', handler: OrderController.getOrders },
       // { method: 'get', path: '/:id', handler: OrderController.getOrderById },
       // { method: 'put', path: '/:id/status', handler: OrderController.updateOrderStatus }
+    ]
+  },
+  {
+    basePath: '/users',
+    routes: [
+      { method: 'get', path: '/', handler: UserController.getAll },
+      { method: 'post', path: '/create', handler: UserController.create},
+      { method: 'delete', path: 'delete/:id', handler: UserController.delete },
+      { method: 'put', path: '/:id', handler: UserController.update  },
     ]
   }
 ]);
