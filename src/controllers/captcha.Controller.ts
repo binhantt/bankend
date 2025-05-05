@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import CaptchaService from '../services/captchaService';
+import CaptchaService from '../services/captcha.Service';
 
 class CaptchaController {
     public generate = async (req: Request, res: Response): Promise<void> => {

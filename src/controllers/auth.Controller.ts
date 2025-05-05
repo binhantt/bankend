@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { encryptResponse, hashPassword } from '../utils/crypto';
-import Token from '../services/tokenService';
+import Token from '../services/token.Service';
 import { createUser } from '../models/User';
-import CaptchaService from '../services/captchaService';
+import CaptchaService from '../services/captcha.Service';
 
 class AuthController {
     public register = async (req: Request, res: Response): Promise<void> => {

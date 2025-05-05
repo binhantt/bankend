@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import AuthController from '../controllers/authController';
-import CaptchaController from '../controllers/captchaController';
-import categoryController from '../controllers/categoryController';
-import productController from '../controllers/producController';
-import orderController from '../controllers/orderController';
+import AuthController from '../controllers/auth.Controller';
+import CaptchaController from '../controllers/captcha.Controller';
+import categoryController from '../controllers/category.Controller';
+import productController from '../controllers/produc.Controller';
+import orderController from '../controllers/order.Controller';
 const router = Router();
 router.get('/generate', CaptchaController.generate);
 router.post('/register', AuthController.register);

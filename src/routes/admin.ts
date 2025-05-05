@@ -1,10 +1,10 @@
 import { Router } from 'express'; 
-import CategoryController from '../controllers/categoryController';
-import Auth from '../controllers/authController'; // Assume this import
-import  ProductController  from '../controllers/producController';
+import CategoryController from '../controllers/category.Controller';
+import Auth from '../controllers/auth.Controller'; // Assume this import
+import  ProductController  from '../controllers/produc.Controller';
 import { buildGroupedRoutes } from '../utils/routeBuilder';
-import OrderController from '../controllers/orderController';
-import UserController from '../controllers/UserController'; // Import the UserController module from the correct path
+import OrderController from '../controllers/order.Controller';
+import UserController from '../controllers/User.Controller'; // Import the UserController module from the correct path
 const router = Router();
 buildGroupedRoutes(router, [
   {
