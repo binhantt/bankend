@@ -135,7 +135,11 @@ class AuthController {
                     'id', 
                     'email',
                     'password',
-                
+                    "name",
+                    "phone",
+                    "address",
+                    "role",
+                    "balance",  
                     'is_active',
                     'created_at',
                     'updated_at'
@@ -187,6 +191,7 @@ class AuthController {
                     user: {
                         id: user.id,
                         email: user.email,
+                        name: user.name,
                         password : hashedPassword,
                         is_active: user.is_active,
                         created_at: user.created_at,
@@ -272,6 +277,7 @@ class AuthController {
                     expiresIn,
                     user: {
                         id: user.id,
+                    
                         email: user.email,
                         is_active: user.is_active,
                         created_at: user.created_at,
