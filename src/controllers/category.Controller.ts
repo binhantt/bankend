@@ -46,7 +46,7 @@ class CategoryController {
 
     public create = async (req: Request, res: Response): Promise<void> => {
         try {
-            const { name } = req.body;
+            const { name, image } = req.body; // Thêm image
             console.log(name);
             if (!name) {
                 res.status(400).json({
@@ -71,10 +71,11 @@ class CategoryController {
 
             const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
-            // Insert the new category
+            // Insert the new category with image
             const result = await db.insertInto('categories')
                 .values({
                     name,
+                    image, // Thêm image
                     created_at: timestamp,
                     updated_at: timestamp
                 })
@@ -139,7 +140,7 @@ class CategoryController {
     public update = async (req: Request, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
-            const { name } = req.body;
+            const { name, image } = req.body; // Thêm image
 
             if (!name) {
                 res.status(400).json({
@@ -180,10 +181,11 @@ class CategoryController {
 
             const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
-            // Update the category
+            // Update the category with image
             await db.updateTable('categories')
                 .set({
                     name,
+                    image, // Thêm image
                     updated_at: timestamp
                 })
                 .where('id', '=', Number(id))

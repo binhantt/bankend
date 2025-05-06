@@ -8,6 +8,7 @@ const router = Router();
 router.get('/generate', CaptchaController.generate);
 router.post('/register', AuthController.register);
 router.post('/login', AuthController.login);
+// Thêm dòng này
 router.get('/categroy', categoryController.getAll); 
 router.get('/products', productController.getAll) ; 
 router.post('/order', orderController.createOrder);
