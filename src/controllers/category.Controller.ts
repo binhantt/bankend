@@ -11,7 +11,7 @@ class CategoryController {
 
             // Truy vấn danh mục với phân trang
             const categories = await db.selectFrom('categories')
-                .select(['id', 'name', 'created_at', 'updated_at'])
+                .select(['id', 'name','image', 'created_at', 'updated_at'])
                 .limit(limit)
                 .offset(offset)
                 .execute();

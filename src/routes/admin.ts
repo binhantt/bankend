@@ -5,6 +5,8 @@ import  ProductController  from '../controllers/produc.Controller';
 import { buildGroupedRoutes } from '../utils/routeBuilder';
 import OrderController from '../controllers/order.Controller';
 import UserController from '../controllers/User.Controller'; // Import the UserController module from the correct path
+import ProductIntroController from '../controllers/productIntro.Controller';
+
 const router = Router();
 buildGroupedRoutes(router, [
   {
@@ -54,6 +56,15 @@ buildGroupedRoutes(router, [
       { method: 'post', path: '/create', handler: UserController.create},
       { method: 'delete', path: 'delete/:id', handler: UserController.delete },
       { method: 'put', path: '/:id', handler: UserController.update  },
+    ]
+  },
+  {
+    basePath: '/product-intros',
+    routes: [
+      { method: 'get', path: '/', handler: ProductIntroController.getAll },
+      { method: 'post', path: '/create', handler: ProductIntroController.create },
+      { method: 'put', path: '/update/:id', handler: ProductIntroController.update },
+      { method: 'delete', path: '/delete/:id', handler: ProductIntroController.delete }
     ]
   }
 ]);

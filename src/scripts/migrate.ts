@@ -8,6 +8,8 @@ import * as createWishlists from '../migrations/008_create_wishlists'
 import * as createDiscounts from '../migrations/009_create_discounts'
 import * as createOrderDiscounts from '../migrations/010_create_order_discounts'
 import * as createShippingMethods from '../migrations/011_create_shipping_methods'
+import * as createProductIntros from '../migrations/012_create_product_intros'
+
 
 async function runMigration(migration: { up: Function, down: Function }, action: 'up' | 'down') {
   try {
@@ -29,12 +31,14 @@ async function migrateToLatest() {
     { name: 'users', migration: createUsers },
     { name: 'categories', migration: createCategories },
     { name: 'products', migration: createProducts },
+    { name: 'product_intros', migration: createProductIntros },
     { name: 'order_items', migration: createOrderItems },
     { name: 'orders', migration: createOrders },
     { name: 'wishlists', migration: createWishlists },
     { name: 'discounts', migration: createDiscounts },
     { name: 'order_discounts', migration: createOrderDiscounts },
     { name: 'shipping_methods', migration: createShippingMethods }
+
   ]
 
   for (const { name, migration } of migrations) {
