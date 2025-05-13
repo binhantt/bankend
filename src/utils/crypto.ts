@@ -44,3 +44,8 @@ export const decryptResponse = (encryptedData: string): string => {
   decipher.setAuthTag(authTag)
   return decipher.update(encrypted) + decipher.final('utf8')
 }
+
+export const comparePasswords = async (plainPassword: string, hashedPassword: string): Promise<boolean> => {
+    const hashedInput = hashPassword(plainPassword);
+    return hashedInput === hashedPassword;
+};

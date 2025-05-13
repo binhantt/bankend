@@ -249,8 +249,9 @@ class CategoryController {
                 return;
             }
 
+            // First find matching categories
             const categories = await db.selectFrom('categories')
-                .select(['id', 'name', 'created_at', 'updated_at'])
+                .select(['id', 'name'])
                 .where('name', 'like', `%${name}%`)
                 .execute();
 
@@ -262,9 +263,23 @@ class CategoryController {
                 return;
             }
 
+            // Then get products for each category
+            const productsByCategory = await Promise.all(
+                categories.map(async (category) => {
+                    const products = await db.selectFrom('products')
+                        .select(['id', 'name', 'price', 'main_image_url'])
+                        .where('category_id', '=', category.id)
+                        .execute();
+                    return {
+                        category,
+                        products
+                    };
+                })
+            );
+
             res.status(200).json({
                 success: true,
-                data: categories
+                data: productsByCategory
             });
         } catch (error) {
             console.error('Search categories by name error:', error);

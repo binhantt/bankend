@@ -38,10 +38,48 @@ export async function up(db: Kysely<any>): Promise<void> {
             col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
         )
         .execute()
+
+    // Create product_details table for additional product information
+    await db.schema
+        .createTable('product_details')
+        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('product_id', 'integer', (col) => 
+            col.references('products.id').onDelete('cascade').notNull()
+        )
+        .addColumn('spec_name', 'varchar(255)', (col) => col.notNull())
+        .addColumn('spec_value', 'text', (col) => col.notNull())
+        .addColumn('sort_order', 'integer', (col) => col.notNull().defaultTo(0))
+        .addColumn('created_at', 'timestamp', (col) => 
+            col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
+        )
+        .addColumn('updated_at', 'timestamp', (col) => 
+            col.notNull().defaultTo(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`)
+        )
+        .execute()
+
+    // Create warranties table
+    await db.schema
+        .createTable('warranties')
+        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('product_id', 'integer', (col) => 
+            col.references('products.id').onDelete('cascade').notNull()
+        )
+        .addColumn('warranty_period', 'varchar(50)', (col) => col.notNull())
+        .addColumn('warranty_provider', 'varchar(100)', (col) => col.notNull())
+        .addColumn('warranty_conditions', 'text', (col) => col.notNull())
+        .addColumn('created_at', 'timestamp', (col) => 
+            col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
+        )
+        .addColumn('updated_at', 'timestamp', (col) => 
+            col.notNull().defaultTo(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`)
+        )
+        .execute()
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
     // Drop tables in reverse order
+    await db.schema.dropTable('warranties').ifExists().execute()
     await db.schema.dropTable('product_images').ifExists().execute()
     await db.schema.dropTable('products').ifExists().execute()
+    await db.schema.dropTable('product_details').ifExists().execute()
 }

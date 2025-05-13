@@ -112,6 +112,46 @@ class OrderController {
     }
   }
 
+  public deleteOrder = async (req: Request, res: Response): Promise<void> => {
+      try {
+          const { id } = req.params;
+          
+          // Check if order exists
+          const order = await db.selectFrom('orders')
+              .select('id')
+              .where('id', '=', Number(id))
+              .executeTakeFirst();
+              
+          if (!order) {
+              res.status(404).json({
+                  success: false,
+                  message: 'Không tìm thấy đơn hàng'
+              });
+              return;
+          }
+          
+          // Delete order items first (due to foreign key constraint)
+          await db.deleteFrom('order_items')
+              .where('order_id', '=', Number(id))
+              .execute();
+              
+          // Then delete the order
+          await db.deleteFrom('orders')
+              .where('id', '=', Number(id))
+              .execute();
+              
+          res.status(200).json({
+              success: true,
+              message: 'Xóa đơn hàng thành công'
+          });
+      } catch (error) {
+          console.error('Delete order error:', error);
+          res.status(500).json({
+              success: false,
+              message: 'Không thể xóa đơn hàng'
+          });
+      }
+  }
 }
 
 export default new OrderController()

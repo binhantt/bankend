@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from "../config/database";
+import bcrypt from 'bcrypt';
 
 interface User {
     id: number;
@@ -145,7 +146,15 @@ class UserController {
                 .where('id', '=', Number(id))
                 .execute();
 
-            res.status(200).json({ success: true, message: 'User updated successfully' });
+            res.status(200).json({ success: true, message: {
+                name : name,
+                phone : phone,
+                address : address,
+                role : role,
+                is_active : is_active,
+                updated_at : new Date().toISOString()
+                
+            } });
         } catch (error) {
             console.error('Error updating user:', error);
             res.status(500).json({ 
@@ -170,6 +179,60 @@ class UserController {
             res.status(500).json({ 
                 success: false,
                 message: 'Failed to delete user',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    }
+
+    public changePassword = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+            const { currentPassword, newPassword } = req.body;
+
+            // Get user with password (assuming password field exists in database)
+            const user = await db
+                .selectFrom('users')
+                .select(['id', 'password'])
+                .where('id', '=', Number(id))
+                .executeTakeFirst();
+
+            if (!user) {
+                res.status(404).json({ success: false, message: 'User not found' });
+                return;
+            }
+
+            // Verify current password (you'll need to implement password comparison logic)
+            const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+            if (!isPasswordValid) {
+                res.status(400).json({ 
+                    success: false, 
+                    message: 'Current password is incorrect' 
+                });
+                return;
+            }
+
+            // Hash new password before storing
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+            await db
+                .updateTable('users')
+                .set({
+                    password: hashedPassword,
+                    updated_at: new Date().toISOString()
+                })
+                .where('id', '=', Number(id))
+                .execute();
+
+            res.status(200).json({ 
+                success: true, 
+                message: 'Password changed successfully' 
+            });
+        } catch (error) {
+            console.error('Error changing password:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Failed to change password',
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
         }

@@ -54,8 +54,8 @@ buildGroupedRoutes(router, [
     routes: [
       { method: 'get', path: '/', handler: UserController.getAll },
       { method: 'post', path: '/create', handler: UserController.create},
-      { method: 'delete', path: 'delete/:id', handler: UserController.delete },
-      { method: 'put', path: '/:id', handler: UserController.update  },
+      { method: 'delete', path: '/delete/:id', handler: UserController.delete },
+      { method: 'put', path: '/update/:id', handler: UserController.update  },
     ]
   },
   {

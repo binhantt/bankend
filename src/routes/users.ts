@@ -10,10 +10,16 @@ const router = Router();
 router.get('/generate', CaptchaController.generate);
 router.post('/register', AuthController.register);
 router.post('/login', AuthController.login);
-// Thêm dòng này
+router.get('/verify-token', AuthController.verifyToken);
+router.get('/profile', AuthController.getProfile);
+router.get('/products/search', categoryController.searchByName);
+router.put('/:userId/password', AuthController.changePassword);
+router.put('/:userId/profile', AuthController.updateProfile);
 router.get('/categroy', categoryController.getAll); 
 router.get('/products', productController.getAll) ; 
-router.post('/order', orderController.createOrder);
+router.post('/order/creact', orderController.createOrder);
 router.get('/orders', orderController.getOrders);
+
+router.delete('/orders/:id', orderController.deleteOrder);
 router.get('/productIntro', productIntro.getAll);
 export default router;
