@@ -1,3 +1,5 @@
-import { startServer } from './config/server';
+import app from './config/server'
+import { startServer } from './config/serverStart'
 
-startServer();
+startServer(app)
+

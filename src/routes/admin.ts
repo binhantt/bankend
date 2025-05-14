@@ -45,8 +45,7 @@ buildGroupedRoutes(router, [
     routes: [
       { method: 'post', path: '/create', handler: OrderController.createOrder },
       { method: 'get', path: '/', handler: OrderController.getOrders },
-      // { method: 'get', path: '/:id', handler: OrderController.getOrderById },
-      // { method: 'put', path: '/:id/status', handler: OrderController.updateOrderStatus }
+      { method: 'put', path: '/update/:id', handler: OrderController.updateOrder }
     ]
   },
   {

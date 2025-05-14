@@ -18,8 +18,6 @@ router.put('/:userId/profile', AuthController.updateProfile);
 router.get('/categroy', categoryController.getAll); 
 router.get('/products', productController.getAll) ; 
 router.post('/order/creact', orderController.createOrder);
-router.get('/orders', orderController.getOrders);
-
-router.delete('/orders/:id', orderController.deleteOrder);
+router.get('/:userId/orders', orderController.getOrdersByUserId);
 router.get('/productIntro', productIntro.getAll);
 export default router;
