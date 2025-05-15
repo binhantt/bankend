@@ -6,10 +6,7 @@ import { buildGroupedRoutes } from '../utils/routeBuilder';
 import OrderController from '../controllers/order.Controller';
 import UserController from '../controllers/User.Controller'; // Import the UserController module from the correct path
 import ProductIntroController from '../controllers/productIntro.Controller';
-<<<<<<< HEAD
 import ParentCategoriesController from '../controllers/parent_categories.Controller';
-=======
->>>>>>> f2c87076b3525d510a73712e8111e9a2d164ab0a
 
 const router = Router();
 buildGroupedRoutes(router, [
@@ -69,7 +66,6 @@ buildGroupedRoutes(router, [
       { method: 'put', path: '/update/:id', handler: ProductIntroController.update },
       { method: 'delete', path: '/delete/:id', handler: ProductIntroController.delete }
     ]
-<<<<<<< HEAD
   },
   {
     basePath: '/parent-categories',
@@ -80,8 +76,6 @@ buildGroupedRoutes(router, [
       { method: 'delete', path: '/delete/:id', handler: ParentCategoriesController.delete },
       { method: 'get', path: '/:id', handler: ParentCategoriesController.getById }
     ]
-=======
->>>>>>> f2c87076b3525d510a73712e8111e9a2d164ab0a
   }
 ]);
 
