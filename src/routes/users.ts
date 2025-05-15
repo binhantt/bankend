@@ -1,0 +1,23 @@
+import { Router } from 'express';
+import AuthController from '../controllers/auth.Controller';
+import CaptchaController from '../controllers/captcha.Controller';
+import categoryController from '../controllers/category.Controller';
+import productController from '../controllers/produc.Controller';
+import orderController from '../controllers/order.Controller';
+import productIntro from '../controllers/productIntro.Controller';
+
+const router = Router();
+router.get('/generate', CaptchaController.generate);
+router.post('/register', AuthController.register);
+router.post('/login', AuthController.login);
+router.get('/verify-token', AuthController.verifyToken);
+router.get('/profile', AuthController.getProfile);
+router.get('/products/search', categoryController.searchByName);
+router.put('/:userId/password', AuthController.changePassword);
+router.put('/:userId/profile', AuthController.updateProfile);
+router.get('/categroy', categoryController.getAll); 
+router.get('/products', productController.getAll) ; 
+router.post('/order/creact', orderController.createOrder);
+router.get('/:userId/orders', orderController.getOrdersByUserId);
+router.get('/productIntro', productIntro.getAll);
+export default router;

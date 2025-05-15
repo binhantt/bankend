@@ -1,0 +1,48 @@
+{
+  "name": "doanbankend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.ts",
+    "start": "ts-node src/index.ts",
+    "migrate": "ts-node src/config/migrator.ts",
+    "migrate:up": "ts-node src/config/migrator.ts",
+    "migrate:down": "ts-node src/config/migrator.ts down",
+    "migrate:down:all": "ts-node src/config/migrator.ts down-all",
+    "migrate:create": "node ./scripts/create-migration.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.9",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "chalk": "^5.4.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.1",
+    "jose": "^6.0.10",
+    "jsonwebtoken": "^9.0.2",
+    "kysely": "^0.27.6",
+    "memorystore": "^1.6.7",
+    "mysql2": "^3.14.0",
+    "rate-limit": "^0.1.1",
+    "svg-captcha": "^1.4.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/express-session": "^1.18.1",
+    "@types/node": "^22.13.11",
+    "nodemon": "^3.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
