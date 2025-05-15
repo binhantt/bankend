@@ -9,6 +9,8 @@ import * as createDiscounts from '../migrations/009_create_discounts'
 import * as createOrderDiscounts from '../migrations/010_create_order_discounts'
 import * as createShippingMethods from '../migrations/011_create_shipping_methods'
 import * as createProductIntros from '../migrations/012_create_product_intros'
+import * as createParentCategories from '../migrations/014_create_parent_categories'
+import * as createManufacturers from '../migrations/016_create_manufacturers'
 
 
 async function runMigration(migration: { up: Function, down: Function }, action: 'up' | 'down') {
@@ -37,8 +39,9 @@ async function migrateToLatest() {
     { name: 'wishlists', migration: createWishlists },
     { name: 'discounts', migration: createDiscounts },
     { name: 'order_discounts', migration: createOrderDiscounts },
-    { name: 'shipping_methods', migration: createShippingMethods }
-
+    { name: 'shipping_methods', migration: createShippingMethods },
+    { name: 'parent_categories', migration: createParentCategories },
+    { name: 'manufacturers', migration: createManufacturers }
   ]
 
   for (const { name, migration } of migrations) {
@@ -50,8 +53,12 @@ async function migrateToLatest() {
 }
 
 async function migrateDown() {
-  await createUsers.down(db)
-  console.log('✅ Rollback completed')
+  // Drop all tables in reverse order
+  await createManufacturers.down(db);
+  await createParentCategories.down(db);
+  await createShippingMethods.down(db);
+  await createUsers.down(db);
+  console.log('✅ All tables dropped');
 }
 
 async function migrateFresh() {
