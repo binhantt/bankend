@@ -17,6 +17,7 @@ export interface Product {
     is_active?: boolean;
     sku?: string;
     weight?: number;
+    manufacturer_id?: number;
     dimensions?: string;
     created_at?: Date;
     updated_at?: Date;

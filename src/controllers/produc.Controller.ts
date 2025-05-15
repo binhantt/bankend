@@ -29,6 +29,7 @@ class ProductController {
                     'products.main_image_url',
                     'products.stock',
                     'products.sku',
+                    'products.manufacturer_id',
                     'products.weight',
                     'products.dimensions',
                     'products.created_at',
@@ -50,7 +51,7 @@ class ProductController {
 
             // Get related data for each product
             const productsWithDetails = await Promise.all(products.map(async (product) => {
-                const [images, category, details, warranties] = await Promise.all([
+                const [images, category, details, warranties, manufacturer] = await Promise.all([
                     db.selectFrom('product_images')
                         .selectAll()
                         .where('product_id', '=', product.id)
@@ -66,7 +67,11 @@ class ProductController {
                     db.selectFrom('warranties')
                         .selectAll()
                         .where('product_id', '=', product.id)
-                        .execute()
+                        .execute(),
+                    db.selectFrom('manufacturers')
+                        .selectAll()
+                        .where('id', '=', product.manufacturer_id)
+                        .executeTakeFirst()
                 ]);
 
                 return {
@@ -74,7 +79,8 @@ class ProductController {
                     images: images || [],
                     category: category || null,
                     details: details || [],
-                    warranties: warranties || []
+                    warranties: warranties || [],
+                    manufacturer: manufacturer || null
                 };
             }));
 
@@ -387,6 +393,7 @@ class ProductController {
             await db.updateTable('products')
                 .set({
                     ...updateData,
+                    weight: updateData.weight ? Number(updateData.weight) : 0, // Convert empty string to 0
                     updated_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
                 })
                 .where('id', '=', Number(id))

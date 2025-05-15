@@ -12,11 +12,15 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('category_id', 'integer', (col) => 
             col.references('categories.id').onDelete('set null')
         )
+        .addColumn('manufacturer_id', 'integer', (col) =>
+            col.references('manufacturers.id').onDelete('set null')
+        )
         .addColumn('main_image_url', 'varchar(255)')
         .addColumn('stock', 'integer', (col) => col.notNull().defaultTo(0))
         .addColumn('sku', 'varchar(50)', (col) => col.unique())
         .addColumn('weight', sql`decimal(10,2)`)
         .addColumn('dimensions', 'varchar(50)')
+        .addColumn('quantity', 'integer', (col) => col.notNull().defaultTo(0))
         .addColumn('created_at', 'timestamp', (col) => 
             col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
         )
