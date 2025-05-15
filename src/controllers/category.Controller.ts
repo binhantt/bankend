@@ -4,19 +4,26 @@ import { db } from '../config/database';
 class CategoryController {
     public getAll = async (req: Request, res: Response): Promise<void> => {
         try {
-            // Lấy tham số page và limit từ query string
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 5;
             const offset = (page - 1) * limit;
 
-            // Truy vấn danh mục với phân trang
+            // Get categories with their parent category data
             const categories = await db.selectFrom('categories')
-                .select(['id', 'name','image', 'created_at', 'updated_at'])
+                .leftJoin('parent_categories', 'categories.parent_id', 'parent_categories.id')
+                .select([
+                    'categories.id', 
+                    'categories.name',
+                    'categories.image', 
+                    'categories.created_at', 
+                    'categories.updated_at',
+                    'parent_categories.name as parent_name'
+                ])
                 .limit(limit)
                 .offset(offset)
                 .execute();
 
-            // Truy vấn để lấy tổng số danh mục
+            // Get total count
             const totalCountResult = await db
                 .selectFrom('categories')
                 .select(({ fn }) => [fn.count('id').as('total')])
@@ -46,7 +53,7 @@ class CategoryController {
 
     public create = async (req: Request, res: Response): Promise<void> => {
         try {
-            const { name, image } = req.body; // Thêm image
+            const { name, image, parent_id } = req.body;
             console.log(name);
             if (!name) {
                 res.status(400).json({
@@ -71,11 +78,11 @@ class CategoryController {
 
             const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
-            // Insert the new category with image
             const result = await db.insertInto('categories')
                 .values({
                     name,
-                    image, // Thêm image
+                    image,
+                    parent_id: parent_id || null, // Add parent_id
                     created_at: timestamp,
                     updated_at: timestamp
                 })
@@ -140,7 +147,7 @@ class CategoryController {
     public update = async (req: Request, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
-            const { name, image } = req.body; // Thêm image
+            const { name, image, parent_id } = req.body;
 
             if (!name) {
                 res.status(400).json({
@@ -181,11 +188,11 @@ class CategoryController {
 
             const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
-            // Update the category with image
             await db.updateTable('categories')
                 .set({
                     name,
-                    image, // Thêm image
+                    image,
+                    parent_id: parent_id || null, // Add parent_id
                     updated_at: timestamp
                 })
                 .where('id', '=', Number(id))

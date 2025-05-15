@@ -1,12 +1,13 @@
-import { Router } from 'express'; 
+import { Router } from 'express';
 import CategoryController from '../controllers/category.Controller';
-import Auth from '../controllers/auth.Controller'; // Assume this import
-import  ProductController  from '../controllers/produc.Controller';
+import Auth from '../controllers/auth.Controller';
+import ProductController from '../controllers/produc.Controller';
 import { buildGroupedRoutes } from '../utils/routeBuilder';
 import OrderController from '../controllers/order.Controller';
-import UserController from '../controllers/User.Controller'; // Import the UserController module from the correct path
+import UserController from '../controllers/User.Controller';
 import ProductIntroController from '../controllers/productIntro.Controller';
 import ParentCategoriesController from '../controllers/parent_categories.Controller';
+import ManufacturersController from '../controllers/manufacturers.Controllers';
 
 const router = Router();
 buildGroupedRoutes(router, [
@@ -75,6 +76,16 @@ buildGroupedRoutes(router, [
       { method: 'put', path: '/update/:id', handler: ParentCategoriesController.update },
       { method: 'delete', path: '/delete/:id', handler: ParentCategoriesController.delete },
       { method: 'get', path: '/:id', handler: ParentCategoriesController.getById }
+    ]
+  },
+  {
+    basePath: '/manufacturers',
+    routes: [
+      { method: 'get', path: '/', handler: ManufacturersController.getAll },
+      { method: 'post', path: '/create', handler: ManufacturersController.create },
+      { method: 'put', path: '/update/:id', handler: ManufacturersController.update },
+      { method: 'delete', path: '/delete/:id', handler: ManufacturersController.delete },
+      { method: 'get', path: '/:id', handler: ManufacturersController.getById }
     ]
   }
 ]);
