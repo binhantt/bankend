@@ -9,9 +9,6 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('description', 'text')
         .addColumn('price', sql`decimal(10,2)`, (col) => col.notNull())
         .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
-        .addColumn('category_id', 'integer', (col) => 
-            col.references('categories.id').onDelete('set null')
-        )
         .addColumn('manufacturer_id', 'integer', (col) =>
             col.references('manufacturers.id').onDelete('set null')
         )

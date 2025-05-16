@@ -17,6 +17,7 @@ class CategoryController {
                     'categories.image', 
                     'categories.created_at', 
                     'categories.updated_at',
+                    'parent_categories.id as parent_id',
                     'parent_categories.name as parent_name'
                 ])
                 .limit(limit)

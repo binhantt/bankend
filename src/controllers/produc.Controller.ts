@@ -25,7 +25,6 @@ class ProductController {
                     'products.description',
                     'products.price',
                     'products.is_active',
-                    'products.category_id',
                     'products.main_image_url',
                     'products.stock',
                     'products.sku',
@@ -49,17 +48,25 @@ class ProductController {
                 .offset(offset)
                 .execute();
 
-            // Get related data for each product
+            // Get related data including both category types
             const productsWithDetails = await Promise.all(products.map(async (product) => {
-                const [images, category, details, warranties, manufacturer] = await Promise.all([
+                // Get product-category relations
+                const relations = await db.selectFrom('product_category_relations')
+                    .select(['product_category_id'])
+                    .where('product_id', '=', product.id)
+                    .execute();
+
+                // Get all categories (both types)
+                const [images, categories, details, warranties, manufacturer] = await Promise.all([
                     db.selectFrom('product_images')
                         .selectAll()
                         .where('product_id', '=', product.id)
                         .execute(),
-                    db.selectFrom('categories')
-                        .selectAll()
-                        .where('id', '=', product.category_id)
-                        .executeTakeFirst(),
+                    db.selectFrom('product_category_relations')
+                        .innerJoin('categories', 'categories.id', 'product_category_relations.product_category_id')
+                        .selectAll('categories')
+                        .where('product_category_relations.product_id', '=', product.id)
+                        .execute(),
                     db.selectFrom('product_details')
                         .selectAll()
                         .where('product_id', '=', product.id)
@@ -71,13 +78,13 @@ class ProductController {
                     db.selectFrom('manufacturers')
                         .selectAll()
                         .where('id', '=', product.manufacturer_id)
-                        .executeTakeFirst()
+                        .executeTakeFirst() // Reverted to original to handle missing manufacturers
                 ]);
 
                 return {
                     ...product,
                     images: images || [],
-                    category: category || null,
+                    categories: [...categories],
                     details: details || [],
                     warranties: warranties || [],
                     manufacturer: manufacturer || null
@@ -117,62 +124,10 @@ class ProductController {
             const { images, details, warranties, ...productData } = req.body;
 
             // Validate required fields
-            if (!productData.name || !productData.price) {
+            if (!productData.name || !productData.price || !productData.product_category_ids || productData.product_category_ids.length === 0) {
                 res.status(400).json({
                     success: false,
-                    message: 'Vui lòng nhập đầy đủ thông tin sản phẩm (tên và giá)'
-                });
-                return;
-            }
-
-            // Validate and format SKU
-            if (productData.sku) {
-                // Check if SKU is just numbers
-                if (/^\d+$/.test(productData.sku)) {
-                    res.status(400).json({
-                        success: false,
-                        message: 'Mã SKU không thể chỉ chứa số, vui lòng thêm chữ cái'
-                    });
-                    return;
-                }
-
-                // Ensure SKU is in uppercase and remove spaces
-                productData.sku = productData.sku.toUpperCase().replace(/\s+/g, '');
-            } else {
-                // Generate SKU based on product name and timestamp
-                const cleanName = productData.name
-                    .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
-                    .substring(0, 3) // Take first 3 characters
-                    .toUpperCase();
-                const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
-                const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-                productData.sku = `${cleanName}${timestamp}${random}`;
-            }
-
-            // Check duplicate product name and SKU
-            const [existingProduct, existingSku] = await Promise.all([
-                db.selectFrom('products')
-                    .select('id')
-                    .where('name', '=', productData.name)
-                    .executeTakeFirst(),
-                db.selectFrom('products')
-                    .select('id')
-                    .where('sku', '=', productData.sku)
-                    .executeTakeFirst()
-            ]);
-
-            if (existingProduct) {
-                res.status(409).json({
-                    success: false,
-                    message: 'Sản phẩm này đã tồn tại'
-                });
-                return;
-            }
-
-            if (existingSku) {
-                res.status(409).json({
-                    success: false,
-                    message: 'Mã SKU này đã tồn tại, vui lòng sử dụng mã khác'
+                    message: 'Vui lòng nhập đầy đủ thông tin sản phẩm (tên, giá và ít nhất một danh mục sản phẩm)'
                 });
                 return;
             }
@@ -180,89 +135,70 @@ class ProductController {
             const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
             await db.transaction().execute(async (trx) => {
-                // Create main product
+                // Create main product with all required fields
                 const productResult = await trx.insertInto('products')
                     .values({
-                        ...productData,
+                        name: productData.name,
+                        price: productData.price,
+                        sku: productData.sku || null,
+                        description: productData.description || null,
+                        is_active: productData.is_active !== undefined ? productData.is_active : true,
+                        manufacturer_id: productData.manufacturer_id || null,
+                        main_image_url: productData.main_image_url || null,
+                        stock: productData.stock || 0,
+                        weight: productData.weight || null,
+                        dimensions: productData.dimensions || null,
+                        quantity: productData.quantity || 0,
                         created_at: timestamp,
                         updated_at: timestamp
                     })
                     .executeTakeFirst();
 
-                const productId = productResult.insertId;
-
-                if (Array.isArray(images) && images.length > 0 && images.every(img => img.image_url)) {
-                    await trx.insertInto('product_images')
-                    .values(images.map((img: { image_url: string; sort_order?: number }) => ({
-                        product_id: productId,
-                        image_url: img.image_url,
-                        sort_order: img.sort_order || 0,
-                        created_at: timestamp
-                    })))
-                    .execute();
-                }
-
-                // Process product details if exists
-                if (details?.length > 0) {
-                    await trx.insertInto('product_details')
-                        .values(details.map((detail: {spec_name: string, spec_value: string, sort_order?: number}) => ({
-                            product_id: productId,
-                            spec_name: detail.spec_name,
-                            spec_value: detail.spec_value,
-                            sort_order: detail.sort_order || 0,
-                            created_at: timestamp,
-                            updated_at: timestamp
-                        })))
-                        .execute();
-                }
-
-                // Process warranties if exists
-                if (warranties?.length > 0) {
-                    await trx.insertInto('warranties')
-                        .values(warranties.map((warranty: {
-                            warranty_period: string;
-                            warranty_provider: string;
-                            warranty_conditions: string;
-                        }) => ({
-                            product_id: productId,
-                            warranty_period: warranty.warranty_period,
-                            warranty_provider: warranty.warranty_provider,
-                            warranty_conditions: warranty.warranty_conditions,
-                            created_at: timestamp,
-                            updated_at: timestamp
-                        })))
-                        .execute();
-                }
-
-                // Fetch complete product data
-                const newProduct = await trx.selectFrom('products')
-                    .selectAll()
-                    .where('id', '=', productId)
-                    .executeTakeFirst();
-
-                const [productImages, productDetails, productWarranties] = await Promise.all([
-                    trx.selectFrom('product_images')
-                        .selectAll()
-                        .where('product_id', '=', productId)
-                        .execute(),
-                    trx.selectFrom('product_details')
-                        .selectAll()
-                        .where('product_id', '=', productId)
-                        .execute(),
-                    trx.selectFrom('warranties')
-                        .selectAll()
-                        .where('product_id', '=', productId)
-                        .execute()
-                ]);
+                const productId = Number(productResult.insertId);
+                
+                // Insert product categories and fetch their names
+                const productCategories = await Promise.all(
+                    productData.product_category_ids.map(async (categoryId: number) => {
+                        // Check if category exists in either table
+                        const category = await trx.selectFrom('categories')
+                            .select(['name'])
+                            .where('id', '=', categoryId)
+                            .unionAll(
+                                trx.selectFrom('categories')
+                                    .select(['name'])
+                                    .where('id', '=', categoryId)
+                            )
+                            .executeTakeFirst();
+                        
+                        if (!category) {
+                            throw new Error(`Danh mục với ID ${categoryId} không tồn tại`);
+                        }
+                        
+                        await trx.insertInto('product_category_relations')
+                            .values({
+                                product_id: productId,
+                                product_category_id: categoryId,
+                                created_at: timestamp
+                            })
+                            .execute();
+                        
+                        return {
+                            id: categoryId,
+                            name: category.name
+                        };
+                    })
+                );
 
                 res.status(201).json({
                     success: true,
                     message: 'Tạo sản phẩm thành công',
                     data: {
-                        ...newProduct,
-                        images: productImages,
-                        details: productDetails,
-                        warranties: productWarranties
+                        id: productId,
+                        ...productData,
+                        categories: productCategories,
+                        images: images || [],
+                        details: details || null,
+                        warranties: warranties || null
                     }
                 });
             });

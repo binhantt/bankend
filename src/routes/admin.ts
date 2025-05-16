@@ -10,7 +10,8 @@ import ParentCategoriesController from '../controllers/parent_categories.Control
 import ManufacturersController from '../controllers/manufacturers.Controllers';
 
 const router = Router();
-buildGroupedRoutes(router, [
+// Remove duplicate export default
+const routes = buildGroupedRoutes(router, [
   {
     basePath: '/categories',
     routes: [

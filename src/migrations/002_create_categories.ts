@@ -5,7 +5,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .createTable('categories')
         .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
-        .addColumn('image', 'varchar(255)') // Thêm cột mới
+        .addColumn('image', 'varchar(255)')
         .addColumn('created_at', 'timestamp', (col) => 
             col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
         )

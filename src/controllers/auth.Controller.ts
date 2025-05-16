@@ -235,19 +235,18 @@ class AuthController {
                     'updated_at'
                 ])
                 .where('email', '=', email)
-                .where('role', '=', 'admin')
+                .where('role', 'in', ['admin', 'part_time']) // Changed to check for either role
                 .executeTakeFirst();
 
             if (!user) {
                 res.status(401).json({
                     success: false,
-                    message: 'Email không tồn tại hoặc không phải là tài khoản admin'
+                    message: 'Email không tồn tại hoặc không phải là tài khoản  admin / nhân viên'
                 });
                 return;
             }
-
-            // Direct password comparison
-            if (user.password!== password) {
+            const isPasswordValid = hashPassword(password) === user.password;
+            if (!isPasswordValid) {
                 res.status(401).json({
                     success: false,
                     message: 'Mật khẩu không chính xác'
@@ -284,6 +283,7 @@ class AuthController {
                     
                         email: user.email,
                         is_active: user.is_active,
+                        role: user.role,
                         created_at: user.created_at,
                         updated_at: user.updated_at
                     }
