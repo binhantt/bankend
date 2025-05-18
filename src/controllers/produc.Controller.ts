@@ -1,151 +1,145 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
+import { spec } from 'node:test/reporters';
 
 
 class ProductController {
     public getAll = async (req: Request, res: Response): Promise<void> => {
         try {
-            const page = parseInt(req.query.page as string) || 1;
-            let limit = parseInt(req.query.limit as string) || 10;
-            const offset = (page - 1) * limit;
+            const products = await db
+            .selectFrom('products')
+            .leftJoin('categories', 'products.id_categories', 'categories.id')
+            .leftJoin('manufacturers', 'products.manufacturer_id', 'manufacturers.id')
+            .leftJoin('product_details', 'products.id', 'product_details.product_id')
+            .leftJoin('warranties', 'products.id', 'warranties.product_id')
+            .leftJoin('product_images', 'products.id', 'product_images.product_id')
+            .select([
+                // Product basic info
+                'products.id',
+                'products.name',
+                'products.description',
+                'products.price',
+                'products.id_categories',
+                'products.is_active',
+                'products.main_image_url',
+                'products.stock',
+                'products.sku',
+                'products.weight',
+                'products.dimensions',
+                'products.quantity',
+                'products.created_at',
+                'categories.name as category_name',
+                'categories.id as category_id',
+                'manufacturers.name as manufacturer_name',
+                'manufacturers.phone as manufacturer_phone',
+                'manufacturers.address as manufacturer_address',
+                'product_details.spec_name as detail_title',
+                'product_details.spec_name as spec_name',
+                'warranties.warranty_period as warranty_period',
+                'warranties.warranty_provider as warranty_provider',
 
-            // Nếu limit = 0 hoặc lớn hơn 1000 thì lấy tất cả
-            if (limit === 0 || limit > 1000) {
-                limit = 100000; // Số đủ lớn để lấy tất cả
-            }
-            // Thêm filter theo category và status nếu có
-            const categoryId = req.query.category_id;
-            const isActive = req.query.is_active;
-            
-            // Get base products first
-            let query = db.selectFrom('products')
-                .select([
-                    'products.id',
-                    'products.name',
-                    'products.description',
-                    'products.price',
-                    'products.is_active',
-                    'products.main_image_url',
-                    'products.stock',
-                    'products.sku',
-                    'products.manufacturer_id',
-                    'products.weight',
-                    'products.dimensions',
-                    'products.created_at',
-                    'products.updated_at',
-                ]);
+                'warranties.warranty_conditions as warranty_conditions',
+                'product_images.id as image_id',
+                'product_images.image_url as image_url'
+            ])
+            .execute();
+        
+            // Group products with their images
+            const groupedProducts = products.reduce<Record<string, any>>((acc, product) => {
+                if (!acc[product.id]) {
+                    acc[product.id] = {
+                        id: product.id,
+                        name: product.name,
+                        description: product.description,
+                        price: product.price,
+                        id_categories: product.id_categories,
+                        is_active: product.is_active,
+                        main_image_url: product.main_image_url,
+                        stock: product.stock,
+                        sku: product.sku,
+                        weight: product.weight,
+                        dimensions: product.dimensions,
+                        quantity: product.quantity,
+                        created_at: product.created_at,
+                        images: [],
+                        categories: {
+                            id : product.category_id,
+                            name: product.category_name,
+                        },
+                        manufacturers: {
+                            name: product.manufacturer_name,
+                            phone: product.manufacturer_phone, 
+                            address: product.manufacturer_address,
 
-            if (categoryId) {
-                query = query.where('products.category_id', '=', Number(categoryId));
-            }
-
-            if (isActive !== undefined) {
-                query = query.where('products.is_active', '=', isActive === 'true');
-            }
-
-            const products = await query
-                .limit(limit)
-                .offset(offset)
-                .execute();
-
-            // Get related data including both category types
-            const productsWithDetails = await Promise.all(products.map(async (product) => {
-                // Get product-category relations
-                const relations = await db.selectFrom('product_category_relations')
-                    .select(['product_category_id'])
-                    .where('product_id', '=', product.id)
-                    .execute();
-
-                // Get all categories (both types)
-                const [images, categories, details, warranties, manufacturer] = await Promise.all([
-                    db.selectFrom('product_images')
-                        .selectAll()
-                        .where('product_id', '=', product.id)
-                        .execute(),
-                    db.selectFrom('product_category_relations')
-                        .innerJoin('categories', 'categories.id', 'product_category_relations.product_category_id')
-                        .selectAll('categories')
-                        .where('product_category_relations.product_id', '=', product.id)
-                        .execute(),
-                    db.selectFrom('product_details')
-                        .selectAll()
-                        .where('product_id', '=', product.id)
-                        .execute(),
-                    db.selectFrom('warranties')
-                        .selectAll()
-                        .where('product_id', '=', product.id)
-                        .execute(),
-                    db.selectFrom('manufacturers')
-                        .selectAll()
-                        .where('id', '=', product.manufacturer_id)
-                        .executeTakeFirst() // Reverted to original to handle missing manufacturers
-                ]);
-
-                return {
-                    ...product,
-                    images: images || [],
-                    categories: [...categories],
-                    details: details || [],
-                    warranties: warranties || [],
-                    manufacturer: manufacturer || null
-                };
-            }));
-
-            // Get total count for pagination
-            const totalCountResult = await db
-                .selectFrom('products')
-                .select(({ fn }) => [fn.count('id').as('total')])
-                .executeTakeFirst();
-
-            const total = totalCountResult ? Number(totalCountResult.total) : 0;
-            const totalPages = Math.ceil(total / limit);
+                        }, 
+                        details: [], // Changed from object to array
+                        warranty: {
+                            warranty_period: product.warranty_period,
+                            warranty_provider: product.warranty_provider,
+                            warranty_conditions: product.warranty_conditions
+                        }
+                    };
+                }
+                
+                if (product.image_id) {
+                    acc[product.id].images.push({
+                        url: product.image_url,
+                        sort_order: acc[product.id].images.length + 1
+                    });
+                }
+                
+                if (product.spec_name) {
+                    acc[product.id].details.push({
+                        spec_name: product.spec_name,
+                        spec_value: product.detail_title,
+                        sort_order: acc[product.id].details.length + 1
+                    });
+                }
+                
+                return acc;
+            }, {});
 
             res.status(200).json({
                 success: true,
-                data: productsWithDetails,
-                pagination: {
-                    currentPage: page,
-                    totalPages,
-                    totalItems: total,
-                    itemsPerPage: limit
-                }
+                data: Object.values(groupedProducts)
             });
         } catch (error) {
-            console.error('Get products error:', error);
+            console.error('Get all products error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Không thể lấy danh sách sản phẩm'
             });
         }
-    } 
+    }
 
     public create = async (req: Request, res: Response): Promise<void> => {
         try {
-            const { images, details, warranties, ...productData } = req.body;
-
-            // Validate required fields
-            if (!productData.name || !productData.price || !productData.product_category_ids || productData.product_category_ids.length === 0) {
+            const { images, productDetails, warrantyData, ...productData } = req.body;
+            
+            // Add validation for required fields
+            if (!productData.id_categories) {
                 res.status(400).json({
                     success: false,
-                    message: 'Vui lòng nhập đầy đủ thông tin sản phẩm (tên, giá và ít nhất một danh mục sản phẩm)'
+                    message: 'Category ID is required'
                 });
                 return;
             }
-
+            
             const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
             await db.transaction().execute(async (trx) => {
-                // Create main product with all required fields
+                // Create main product
                 const productResult = await trx.insertInto('products')
                     .values({
                         name: productData.name,
-                        price: productData.price,
-                        sku: productData.sku || null,
                         description: productData.description || null,
-                        is_active: productData.is_active !== undefined ? productData.is_active : true,
+                        price: productData.price,
+                        id_categories: productData.id_categories,
+                        is_active: productData.is_active !== undefined ? productData.is_active : 1,
                         manufacturer_id: productData.manufacturer_id || null,
                         main_image_url: productData.main_image_url || null,
-                        stock: productData.stock || 0,
+                        stock: productData.stock !== undefined ? productData.stock : 0,
+                        sku: productData.sku || null,
                         weight: productData.weight || null,
                         dimensions: productData.dimensions || null,
                         quantity: productData.quantity || 0,
@@ -153,52 +147,84 @@ class ProductController {
                         updated_at: timestamp
                     })
                     .executeTakeFirst();
-
+                
                 const productId = Number(productResult.insertId);
                 
-                // Insert product categories and fetch their names
-                const productCategories = await Promise.all(
-                    productData.product_category_ids.map(async (categoryId: number) => {
-                        // Check if category exists in either table
-                        const category = await trx.selectFrom('categories')
-                            .select(['name'])
-                            .where('id', '=', categoryId)
-                            .unionAll(
-                                trx.selectFrom('categories')
-                                    .select(['name'])
-                                    .where('id', '=', categoryId)
-                            )
-                            .executeTakeFirst();
-                        
-                        if (!category) {
-                            throw new Error(`Danh mục với ID ${categoryId} không tồn tại`);
-                        }
-                        
-                        await trx.insertInto('product_category_relations')
-                            .values({
+                // Insert product images (using TEXT type for image_url)
+                if (images && images.length > 0) {
+                    // Validate each image has required url field
+                    if (images.some((img: {url: string}) => !img.url)) {
+                        res.status(400).json({
+                            success: false,
+                            message: 'Image URL is required for all product images'
+                        });
+                        return;
+                    }
+                    
+                    await trx.insertInto('product_images')
+                        .values(
+                            images.map((image: {url: string, sort_order?: number}) => ({
                                 product_id: productId,
-                                product_category_id: categoryId,
+                                image_url: image.url,
+                                sort_order: image.sort_order || 0,
                                 created_at: timestamp
-                            })
-                            .execute();
-                        
-                        return {
-                            id: categoryId,
-                            name: category.name
-                        };
-                    })
-                );
-
+                            }))
+                        )
+                        .execute();
+                }
+                
+                // Insert product details
+                if (productDetails && productDetails.length > 0) {
+                    await trx.insertInto('product_details')
+                        .values(
+                            productDetails.map((detail: {spec_name: string, spec_value: string, sort_order?: number}) => ({
+                                product_id: productId,
+                                spec_name: detail.spec_name,
+                                spec_value: detail.spec_value,
+                                sort_order: detail.sort_order || 0,
+                                created_at: timestamp,
+                                updated_at: timestamp
+                            }))
+                        )
+                        .execute();
+                }
+                
+                // Insert warranty data if provided
+                if (warrantyData) {
+                    await trx.insertInto('warranties')
+                        .values({
+                            product_id: productId,
+                            warranty_period: warrantyData.warranty_period,
+                            warranty_provider: warrantyData.warranty_provider,
+                            warranty_conditions: warrantyData.warranty_conditions,
+                            created_at: timestamp,
+                            updated_at: timestamp
+                        })
+                        .execute();
+                }
+                
                 res.status(201).json({
                     success: true,
                     message: 'Tạo sản phẩm thành công',
                     data: {
                         id: productId,
-                        ...productData,
-                        categories: productCategories,
+                        productData :{
+                            name: productData.name,
+                            description: productData.description || null,
+                            price: productData.price,
+                            id_categories: productData.id_categories,
+                            is_active: productData.is_active!== undefined? productData.is_active : 1,
+                            manufacturer_id: productData.manufacturer_id || null,
+                            main_image_url: productData.main_image_url || null,
+                            stock: productData.stock!== undefined? productData.stock : 0,
+                            sku: productData.sku || null,
+                            weight: productData.weight || null,
+                            dimensions: productData.dimensions || null,
+                            quantity: productData.quantity || 0,    
+                        },
                         images: images || [],
-                        details: details || null,
-                        warranties: warranties || null
+                        details: productDetails || [],
+                        warranty: warrantyData || null
                     }
                 });
             });
@@ -286,161 +312,123 @@ class ProductController {
     public update = async (req: Request, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
-            const { images, details, warranties, ...updateData } = req.body;
+            const { 
+                name, 
+                description, 
+                price, 
+                is_active, 
+                main_image_url, 
+                stock, 
+                id_categories, 
+                sku,
+                weight, 
+                dimensions, 
+                quantity,
+                images = [],
+                productDetails = [], // Changed from details
+                warranties = {} // Changed from warranties
+            } = req.body;
 
-            if (!updateData.name) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Vui lòng nhập tên sản phẩm'
-                });
-                return;
-            }
 
-            // Check if product exists and name is unique
-            const [product, existingProduct] = await Promise.all([
-                db.selectFrom('products')
-                    .select(['id'])
-                    .where('id', '=', Number(id))
-                    .executeTakeFirst(),
-                db.selectFrom('products')
-                    .select(['id'])
-                    .where('name', '=', updateData.name)
-                    .where('id', '!=', Number(id))
-                    .executeTakeFirst()
-            ]);
-
-            if (!product) {
-                res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy sản phẩm'
-                });
-                return;
-            }
-
-            if (existingProduct) {
-                res.status(409).json({
-                    success: false,
-                    message: 'Tên sản phẩm đã tồn tại'
-                });
-                return;
-            }
-
-            // Update product without returning clause
-            await db.updateTable('products')
-                .set({
-                    ...updateData,
-                    weight: updateData.weight ? Number(updateData.weight) : 0, // Convert empty string to 0
-                    updated_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
-                })
-                .where('id', '=', Number(id))
-                .execute();
-
-            // Handle related data updates in transaction
             await db.transaction().execute(async (trx) => {
-                // Handle images update
-                if (images) {
-                    await trx.deleteFrom('product_images')
-                        .where('product_id', '=', Number(id))
+                // Update main product info
+                await trx
+                    .updateTable('products')
+                    .set({
+                        name,
+                        description,
+                        price,
+                        is_active,
+                        main_image_url,
+                        stock,
+                        sku,
+                        weight,
+                        dimensions,
+                        quantity,
+                        id_categories,
+                        updated_at: new Date()
+                    })
+                    .where('id', '=', id)
+                    .execute();
+    
+                // Update product images
+                await trx.deleteFrom('product_images').where('product_id', '=', id).execute();
+                if (images.length > 0) {
+                    await trx
+                        .insertInto('product_images')
+                        .values(
+                            images.map((img: { url: string; sort_order: number }) => ({
+                                product_id: id,
+                                image_url: img.url,
+                                sort_order: img.sort_order
+                            }))
+                        )
                         .execute();
-
-                    if (Array.isArray(images) && images.length > 0 && images.every(img => img.image_url)) {
-                        const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                        await trx.insertInto('product_images')
-                            .values(images.map((img: {image_url: string, sort_order?: number}, index: number) => ({
-                                product_id: Number(id),
-                                image_url: img.image_url,
-                                sort_order: img.sort_order ?? index,
-                                created_at: timestamp
-                            })))
-                            .execute();
-                    }
                 }
-
-                // Handle details update
-                if (details) {
-                    await trx.deleteFrom('product_details')
-                        .where('product_id', '=', Number(id))
-                        .execute();
-
-                    if (details.length > 0) {
-                        const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                        await trx.insertInto('product_details')
-                            .values(details.map((detail: {spec_name: string, spec_value: string, sort_order?: number}) => ({
-                                product_id: Number(id),
+    
+                // Update product details
+                await trx.deleteFrom('product_details').where('product_id', '=', id).execute();
+                if (productDetails.length > 0) {
+                    await trx
+                        .insertInto('product_details')
+                        .values(
+                            productDetails.map((detail: { spec_name: string; spec_value: string; sort_order: number }) => ({
+                                product_id: id,
                                 spec_name: detail.spec_name,
                                 spec_value: detail.spec_value,
-                                sort_order: detail.sort_order || 0,
-                                created_at: timestamp,
-                                updated_at: timestamp
-                            })))
-                            .execute();
-                    }
-                }
-
-                // Handle warranties update
-                if (warranties) {
-                    await trx.deleteFrom('warranties')
-                        .where('product_id', '=', Number(id))
+                                sort_order: detail.sort_order
+                            }))
+                        )
                         .execute();
-
-                    if (warranties.length > 0) {
-                        const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                        await trx.insertInto('warranties')
-                            .values(warranties.map((warranty: {
-                                warranty_period: string;
-                                warranty_provider: string;
-                                warranty_conditions: string;
-                            }) => ({
-                                product_id: Number(id),
-                                warranty_period: warranty.warranty_period,
-                                warranty_provider: warranty.warranty_provider,
-                                warranty_conditions: warranty.warranty_conditions,
-                                created_at: timestamp,
-                                updated_at: timestamp
-                            })))
-                            .execute();
-                    }
+                }
+    
+                // Update warranties
+                // await trx.deleteFrom('warranties').where('product_id', '=', id).execute();
+                if (warranties && warranties.warranty_period && 
+                    warranties.warranty_provider && warranties.warranty_conditions) {
+                    await trx.insertInto('warranties')
+                        .values({
+                            product_id: id,
+                            warranty_period: warranties.warranty_period,
+                            warranty_provider: warranties.warranty_provider,
+                            warranty_conditions: warranties.warranty_conditions,
+                            created_at: new Date(),
+                            updated_at: new Date()
+                        })
+                        .execute();
                 }
             });
-
-            // Fetch complete updated product data
-            const [finalProduct, productImages, productDetails, productWarranties] = await Promise.all([
-                db.selectFrom('products')
-                    .selectAll()
-                    .where('id', '=', Number(id))
-                    .executeTakeFirst(),
-                db.selectFrom('product_images')
-                    .selectAll()
-                    .where('product_id', '=', Number(id))
-                    .execute(),
-                db.selectFrom('product_details')
-                    .selectAll()
-                    .where('product_id', '=', Number(id))
-                    .execute(),
-                db.selectFrom('warranties')
-                    .selectAll()
-                    .where('product_id', '=', Number(id))
-                    .execute()
-            ]);
-
-            res.status(200).json({
+    
+            res.status(200).json({ 
                 success: true,
-                message: 'Cập nhật sản phẩm thành công',
                 data: {
-                    ...finalProduct,
-                    images: productImages,
+                    id,
+                    name,
+                    description,
+                    price,
+                    is_active,
+                    main_image_url,
+                    stock,
+                    sku,
+                    weight,
+                    dimensions,
+                    quantity,
+                    id_categories,
+                    images,
                     details: productDetails,
-                    warranties: productWarranties
+                    warranties: warranties ? [warranties] : []
                 }
             });
         } catch (error) {
-            console.error('Update product error:', error);
-            res.status(500).json({
+            console.error(error);
+            res.status(500).json({ 
                 success: false,
-                message: 'Không thể cập nhật sản phẩm'
+                error: 'Failed to update product',
+                details: error instanceof Error ? error.message : String(error)
             });
         }
     }
+   
 
     public searchByName = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -611,6 +599,7 @@ class ProductController {
             });
         }
     }
+    
 }
 
 export default new ProductController();

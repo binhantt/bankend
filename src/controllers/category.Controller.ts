@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
-
+import { Kysely, sql } from 'kysely';
 class CategoryController {
     public getAll = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -248,54 +248,87 @@ class CategoryController {
     // Thêm phương thức tìm kiếm theo tên
     public searchByName = async (req: Request, res: Response): Promise<void> => {
         try {
-            const { name } = req.query;
+            const { name } = req.params;
+            console.log(name);
             if (!name) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Vui lòng nhập tên danh mục để tìm kiếm'
-                });
-                return;
-            }
-
-            // First find matching categories
-            const categories = await db.selectFrom('categories')
-                .select(['id', 'name'])
-                .where('name', 'like', `%${name}%`)
-                .execute();
-
-            if (categories.length === 0) {
-                res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy danh mục với tên đã cho'
-                });
-                return;
-            }
-
-            // Then get products for each category
-            const productsByCategory = await Promise.all(
-                categories.map(async (category) => {
-                    const products = await db.selectFrom('products')
-                        .select(['id', 'name', 'price', 'main_image_url'])
-                        .where('category_id', '=', category.id)
-                        .execute();
-                    return {
-                        category,
-                        products
-                    };
-                })
-            );
-
-            res.status(200).json({
-                success: true,
-                data: productsByCategory
-            });
-        } catch (error) {
-            console.error('Search categories by name error:', error);
-            res.status(500).json({
+              res.status(400).json({
                 success: false,
-                message: 'Không thể tìm kiếm danh mục theo tên'
+                error: 'Product name is required'
+              });
+              return;
+            }
+        
+            const products = await db
+              .selectFrom('products as p')
+              .leftJoin('categories as c', 'c.id', 'p.id_categories')
+              .leftJoin('parent_categories as pc', 'pc.id', 'c.parent_id')
+              .leftJoin('manufacturers as m', 'm.id', 'p.manufacturer_id')
+              .leftJoin('product_details as pd', 'pd.product_id', 'p.id')
+              .leftJoin('warranties as w', 'w.product_id', 'p.id')
+              .leftJoin('product_images as pi', 'pi.product_id', 'p.id') // Thêm join với bảng product_images
+              .select([
+                'p.id as product_id',
+                'p.name as product_name',
+                'p.price',
+                'p.main_image_url',
+                'p.stock',
+                'p.sku',
+                'c.id as category_id',
+                'c.name as category_name',
+                'pc.id as parent_category_id',
+                'pc.name as parent_category_name',
+                'm.id as manufacturer_id',
+                'm.name as manufacturer_name',
+                'm.address as manufacturer_address',
+                'm.phone as manufacturer_phone',
+                sql`COALESCE(
+                    JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'spec_name', pd.spec_name,
+                            'spec_value', pd.spec_value
+                        )
+                    ),
+                    JSON_ARRAY()
+                )`.as('product_details'),
+                sql`COALESCE(
+                    JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'warranty_period', w.warranty_period,
+                            'warranty_provider', w.warranty_provider,
+                            'warranty_conditions', w.warranty_conditions
+                        )
+                    ),
+                    JSON_ARRAY()
+                )`.as('warranties'),
+                sql`COALESCE(
+                    JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'image_url', pi.image_url,
+                            'sort_order', pi.sort_order
+                        )
+                    ),
+                    JSON_ARRAY()
+                )`.as('product_images') // Thêm thông tin hình ảnh
+              ])
+              .where('p.name', 'like', `%${name}%`)
+              .groupBy([
+                'p.id', 'p.name', 'p.price', 'p.main_image_url', 'p.stock', 'p.sku',
+                'c.id', 'c.name', 'pc.id', 'pc.name',
+                'm.id', 'm.name', 'm.address', 'm.phone'
+              ])
+              .execute();
+      
+            res.status(200).json({
+              success: true,
+              data: products
             });
-        }
+          } catch (error) {
+            console.error(error);
+            res.status(500).json({
+              success: false,
+              error: 'Failed to search products'
+            });
+          }
     }
     
 }

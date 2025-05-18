@@ -8,6 +8,8 @@
     "migrate": "ts-node src/config/migrator.ts",
     "migrate:up": "ts-node src/config/migrator.ts",
     "migrate:down": "ts-node src/config/migrator.ts down",
+    "build": "tsc",
+    "import": "node dist/scripts/importProducts.js",
     "migrate:down:all": "ts-node src/config/migrator.ts down-all",
     "migrate:create": "node ./scripts/create-migration.js"
   },
@@ -24,6 +26,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "excel": "^1.0.1",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
@@ -31,10 +34,11 @@
     "jsonwebtoken": "^9.0.2",
     "kysely": "^0.27.6",
     "memorystore": "^1.6.7",
-    "mysql2": "^3.14.0",
+    "mysql2": "^3.14.1",
     "rate-limit": "^0.1.1",
     "svg-captcha": "^1.4.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -44,5 +48,11 @@
     "nodemon": "^3.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
+  },
+  "bin": "dist/scripts/importProducts.js",
+  "pkg": {
+    "outputs": [
+      "dist/importProducts.exe"
+    ]
   }
 }

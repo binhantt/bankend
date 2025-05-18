@@ -11,7 +11,6 @@ export interface Product {
     name: string;
     description?: string;
     price: number;
-    product_category_id?: number;   
     category_id?: number;
     main_image_url?: string;
     stock: number;
@@ -34,4 +33,28 @@ export interface CreateProductDTO extends Omit<Product, 'id' | 'created_at' | 'u
 
 export interface UpdateProductDTO extends Partial<CreateProductDTO> {
     id: number;
+}
+
+
+export interface ProductDetail {
+    id?: number;
+    product_id: number;
+    title: string;
+    description: string;
+    created_at?: Date;
+}
+
+export interface Warranty {
+    id?: number;
+    product_id: number;
+    duration: string;
+    description: string;
+    created_at?: Date;
+}
+
+export interface ProductCategory {
+    id?: number;
+    product_id: number;
+    category_id: number;
+    created_at?: Date;
 }

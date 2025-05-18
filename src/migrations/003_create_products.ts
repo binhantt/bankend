@@ -7,6 +7,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
         .addColumn('description', 'text')
+        .addColumn('id_categories', sql`decimal(10,2)`, (col) => col.notNull())
         .addColumn('price', sql`decimal(10,2)`, (col) => col.notNull())
         .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
         .addColumn('manufacturer_id', 'integer', (col) =>

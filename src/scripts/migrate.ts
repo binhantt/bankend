@@ -11,7 +11,6 @@ import * as createShippingMethods from '../migrations/011_create_shipping_method
 import * as createProductIntros from '../migrations/012_create_product_intros'
 import * as createParentCategories from '../migrations/014_create_parent_categories'
 import * as createManufacturers from '../migrations/016_create_manufacturers'
-import * as createProductCategories from '../migrations/017_create_product_categories'
 
 async function runMigration(migration: { up: Function, down: Function }, action: 'up' | 'down') {
   try {
@@ -42,7 +41,7 @@ async function migrateToLatest() {
     { name: 'shipping_methods', migration: createShippingMethods },
     { name: 'parent_categories', migration: createParentCategories },
     { name: 'manufacturers', migration: createManufacturers },
-    { name: 'product_categories', migration: createProductCategories }
+ 
   ]
 
   for (const { name, migration } of migrations) {
