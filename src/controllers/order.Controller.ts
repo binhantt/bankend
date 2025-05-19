@@ -4,10 +4,10 @@ import { db } from '../config/database'
 class OrderController {
   public createOrder = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { user_id, items, shipping_address, payment_method } = req.body
-      
+      const { user_id, items, shipping_address, payment_method ,phone ,name } = req.body
+      console.log('Received request body:', req.body);
       // Validate input
-      if (!user_id || !items || !shipping_address) {
+      if (  !items || !shipping_address) {
         res.status(400).json({
           success: false,
           message: 'Thiếu thông tin bắt buộc'
@@ -58,29 +58,44 @@ class OrderController {
 
         // Create order
         console.log('4. Creating order');
-        const order = await trx.insertInto('orders')
+        // Add interface for order item type
+        interface OrderItem {
+          product_id: number;
+          quantity: number;
+          price: number;
+          phone?: string;
+          name?: string;
+        }
+        
+        // In your method:
+        const { insertId } = await trx.insertInto('orders')
           .values({
             user_id,
             total_amount: totalAmount,
             shipping_address,
             payment_method,
+            phone,
+            name,
             created_at: timestamp,
             updated_at: timestamp
           })
-          .executeTakeFirst()
-
-        // Add order items
-        console.log('5. Adding order items');
+          .executeTakeFirstOrThrow();
+        
+        const order = { id: insertId };
+        // Fix the mapping with proper types
         await trx.insertInto('order_items')
-          .values(combinedItems.map((item: any) => ({
-            order_id: Number(order.insertId),
-            product_id: item.product_id,
-            quantity: item.quantity,
-            price: item.price,
-            created_at: timestamp
-          })))
-          .execute()
-
+          .values(
+            combinedItems.map((item: OrderItem) => ({
+              order_id: order.id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price: item.price,
+              created_at: timestamp,
+            
+            }))
+          )
+          .execute();
+        
         // Update product stock
         console.log('6. Updating product stock');
         for (const item of combinedItems) {
@@ -99,7 +114,7 @@ class OrderController {
           success: true,
           message: 'Tạo đơn hàng thành công',
           data: { 
-            order_id: Number(order.insertId),
+            order_id: Number(order.id),
             items: combinedItems
           }
         })
@@ -130,19 +145,22 @@ class OrderController {
     try {
       // First get all orders with user info
       const orders = await db.selectFrom('orders')
-        .innerJoin('users', 'users.id', 'orders.user_id')
+        .leftJoin('users', 'users.id', 'orders.user_id')
         .select([
           'orders.id',
           'orders.user_id',
+          'orders.name as order_name',
           'orders.total_amount',
           'orders.status',
+          'orders.phone as order_phone',
           'orders.shipping_address',
           'orders.created_at',
+          'users.phone as user_phone',
           'users.name as user_name',
-          'users.email as user_email'
+          'users.email as user_email',
         ])
         .execute()
-
+        console.log('Orders:', orders);
       // Then get items for each order and combine duplicates
       const ordersWithItems = await Promise.all(orders.map(async (order) => {
         const items = await db.selectFrom('order_items')
@@ -157,7 +175,7 @@ class OrderController {
             'products.main_image_url'
           ])
           .execute()
-
+         console.log('Items for order', order.id, ':', items);
         // Combine duplicate items
         const combinedItems = items.reduce((acc: any[], item: any) => {
           const existingItem = acc.find(i => i.product_id === item.product_id);
@@ -316,10 +334,11 @@ class OrderController {
       try {
           const { id } = req.params;
           
+          
           // Check if order exists
           const order = await db.selectFrom('orders')
               .select('id')
-              .where('id', '=', Number(id))
+              .where('id', '=', id)
               .executeTakeFirst();
               
           if (!order) {
@@ -329,17 +348,11 @@ class OrderController {
               });
               return;
           }
-          
-          // Delete order items first (due to foreign key constraint)
-          await db.deleteFrom('order_items')
-              .where('order_id', '=', Number(id))
-              .execute();
-              
-          // Then delete the order
-          await db.deleteFrom('orders')
-              .where('id', '=', Number(id))
-              .execute();
-              
+                  // Delete the order
+        await db.deleteFrom('orders')
+        .where('id', '=', id)
+        .execute();
+        
           res.status(200).json({
               success: true,
               message: 'Xóa đơn hàng thành công'

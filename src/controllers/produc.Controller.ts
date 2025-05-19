@@ -134,6 +134,7 @@ class ProductController {
                         name: productData.name,
                         description: productData.description || null,
                         price: productData.price,
+                    
                         id_categories: productData.id_categories,
                         is_active: productData.is_active !== undefined ? productData.is_active : 1,
                         manufacturer_id: productData.manufacturer_id || null,
@@ -317,19 +318,20 @@ class ProductController {
                 description, 
                 price, 
                 is_active, 
-                main_image_url, 
+                manufacturer_id = null, // Make manufacturer_id optional with default null
+                main_image_url =null, 
                 stock, 
                 id_categories, 
                 sku,
                 weight, 
                 dimensions, 
-                quantity,
+                quantity ,
                 images = [],
                 productDetails = [], // Changed from details
                 warranties = {} // Changed from warranties
             } = req.body;
 
-
+            console.log(req.body)
             await db.transaction().execute(async (trx) => {
                 // Update main product info
                 await trx
@@ -337,6 +339,7 @@ class ProductController {
                     .set({
                         name,
                         description,
+                        manufacturer_id, // Now accepts null
                         price,
                         is_active,
                         main_image_url,
@@ -350,7 +353,7 @@ class ProductController {
                     })
                     .where('id', '=', id)
                     .execute();
-    
+                    
                 // Update product images
                 await trx.deleteFrom('product_images').where('product_id', '=', id).execute();
                 if (images.length > 0) {
@@ -405,6 +408,7 @@ class ProductController {
                     id,
                     name,
                     description,
+                    manufacturer_id,
                     price,
                     is_active,
                     main_image_url,

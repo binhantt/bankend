@@ -8,6 +8,8 @@ export async function up(db: Kysely<any>) {
     .addColumn('total_amount', 'decimal', (col) => col.notNull())
     .addColumn('status', 'varchar(20)', (col) => col.notNull().defaultTo('pending'))
     .addColumn('payment_method', 'varchar(50)')
+    .addColumn('name', 'varchar(100)', (col) => col.notNull() )
+    .addColumn('phone', 'varchar(100)', (col) => col.notNull())
     .addColumn('shipping_address', 'text', (col) => col.notNull())
     .addColumn('created_at', 'text', (col) => col.notNull())
     .addColumn('updated_at', 'text', (col) => col.notNull())

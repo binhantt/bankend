@@ -209,13 +209,14 @@ export default class ParentCategoriesController {
   }
   static async GetProduct(req: Request, res: Response): Promise<void> {
     try {
-        const { name } = req.params; // Get category name from URL params
+        const { name } = req.params;
         
         const parentCategories = await db
             .selectFrom('parent_categories as pc')
             .leftJoin('categories as c', 'c.parent_id', 'pc.id')
             .leftJoin('products as p', 'p.id_categories', 'c.id')
-            .where('c.name', 'like', `%${name}%`) // Filter by category name
+            .leftJoin('manufacturers as m', 'm.id', 'p.manufacturer_id') // Added manufacturer join
+            .where('c.name', 'like', `%${name}%`)
             .select([
                 'pc.id as parent_category_id',
                 'pc.name as parent_category_name',
@@ -224,13 +225,17 @@ export default class ParentCategoriesController {
                 'p.id as product_id',
                 'p.name as product_name',
                 'p.price',
+                'p.is_active',
                 'p.main_image_url',
                 'p.stock',
-                'p.sku'
+                'p.sku',
+                'p.quantity as product_quantity',
+                'm.id as manufacturer_id', // Added manufacturer fields
+                'm.name as manufacturer_name'
             ])
             .execute();
 
-        // Group the results hierarchically
+        // Grouping logic remains similar but can be optimized further
         const result = parentCategories.reduce((acc, row) => {
             let parentCat = acc.find(pc => pc.id === row.parent_category_id);
             
@@ -262,7 +267,11 @@ export default class ParentCategoriesController {
                         price: row.price,
                         main_image_url: row.main_image_url,
                         stock: row.stock,
-                        sku: row.sku
+                        sku: row.sku, 
+                        quantity: row.product_quantity,
+                        is_active: row.is_active, // This line is present but check if it's being overwritten
+                        manufacturer_id: row.manufacturer_id,
+                        manufacturer_name: row.manufacturer_name
                     });
                 }
             }
@@ -278,9 +287,13 @@ export default class ParentCategoriesController {
                     id: number;
                     name: string;
                     price: number;
+                    is_active: boolean;
                     main_image_url: string;
                     stock: number;
-                    sku: string;
+                    sku: string,
+                    quantity: number;
+                    manufacturer_id?: number; // Added manufacturer info
+                    manufacturer_name?: string;
                 }>;
             }>;
         }>);
@@ -300,7 +313,6 @@ export default class ParentCategoriesController {
   static async GetProductById(req: Request, res: Response): Promise<void> {
     try {
       const { name } = req.params;
-      
       if (!name) {
         res.status(400).json({
           success: false,
@@ -309,14 +321,11 @@ export default class ParentCategoriesController {
         return;
       }
   
+      // First get the base product data
       const products = await db
         .selectFrom('products as p')
-        .leftJoin('categories as c', 'c.id', 'p.id_categories')
-        .leftJoin('parent_categories as pc', 'pc.id', 'c.parent_id')
         .leftJoin('manufacturers as m', 'm.id', 'p.manufacturer_id')
-        .leftJoin('product_details as pd', 'pd.product_id', 'p.id')
-        .leftJoin('warranties as w', 'w.product_id', 'p.id')
-        .leftJoin('product_images as pi', 'pi.product_id', 'p.id') // Thêm join với bảng product_images
+        .leftJoin("categories as c " , 'c.id' ,'p.id_categories' )
         .select([
           'p.id as product_id',
           'p.name as product_name',
@@ -324,51 +333,48 @@ export default class ParentCategoriesController {
           'p.main_image_url',
           'p.stock',
           'p.sku',
-          'c.id as category_id',
-          'c.name as category_name',
-          'pc.id as parent_category_id',
-          'pc.name as parent_category_name',
+          // 'c.name as category_name',
+          'p.description',
+          'p.is_active',
+          'p.quantity',
+        
           'm.id as manufacturer_id',
           'm.name as manufacturer_name',
           'm.address as manufacturer_address',
-          'm.phone as manufacturer_phone',
-          sql`COALESCE(
-              JSON_ARRAYAGG(
-                  JSON_OBJECT(
-                      'spec_name', pd.spec_name,
-                      'spec_value', pd.spec_value
-                  )
-              ),
-              JSON_ARRAY()
-          )`.as('product_details'),
-          sql`COALESCE(
-              JSON_ARRAYAGG(
-                  JSON_OBJECT(
-                      'warranty_period', w.warranty_period,
-                      'warranty_provider', w.warranty_provider,
-                      'warranty_conditions', w.warranty_conditions
-                  )
-              ),
-              JSON_ARRAY()
-          )`.as('warranties'),
-          sql`COALESCE(
-              JSON_ARRAYAGG(
-                  JSON_OBJECT(
-                      'image_url', pi.image_url,
-                      'sort_order', pi.sort_order
-                  )
-              ),
-              JSON_ARRAY()
-          )`.as('product_images') // Thêm thông tin hình ảnh
+          'm.phone as manufacturer_phone'
         ])
         .where('p.name', 'like', `%${name}%`)
-        .groupBy([
-          'p.id', 'p.name', 'p.price', 'p.main_image_url', 'p.stock', 'p.sku',
-          'c.id', 'c.name', 'pc.id', 'pc.name',
-          'm.id', 'm.name', 'm.address', 'm.phone'
-        ])
-        .execute();
-
+        .execute() as ProductWithRelations[];
+  
+      // Then get related data separately and combine
+      for (const product of products) {
+        // Get product images
+        const images = await db
+          .selectFrom('product_images as pi')
+          .select(['pi.image_url', 'pi.sort_order'])
+          .where('pi.product_id', '=', product.product_id)
+          .execute();
+        
+        // Get product details
+        const details = await db
+          .selectFrom('product_details as pd')
+          .select(['pd.spec_name', 'pd.spec_value'])
+          .where('pd.product_id', '=', product.product_id)
+          .execute();
+        
+        // Get warranties
+        const warranties = await db
+          .selectFrom('warranties as w')
+          .select(['w.warranty_period', 'w.warranty_provider', 'w.warranty_conditions'])
+          .where('w.product_id', '=', product.product_id)
+          .execute();
+        
+        // Add to product object
+        product.product_images = images;
+        product.product_details = details;
+        product.warranties = warranties;
+      }
+  
       res.status(200).json({
         success: true,
         data: products
@@ -381,4 +387,34 @@ export default class ParentCategoriesController {
       });
     }
   }
+  static async seackNameProduct(req: Request, res: Response): Promise<void> {
+    try {
+        const product = await db.selectFrom('products').selectAll().execute();
+        res.status(200).json({
+          success: true,
+          data: product
+        });
+    }catch (error) {
+        res.status(500).json({ error: 'Failed to fetch products' });
+    }
+  }
+}
+
+interface ProductWithRelations {
+  product_id: any;
+  product_name: any;
+  price: any;
+  is_active: any;
+  main_image_url: any;
+  stock: any;
+  sku: any;
+  manufacturer_id: any;
+  manufacturer_name: any;
+  description: any;
+  quantity: any;
+  manufacturer_address: any;
+  manufacturer_phone: any;
+  product_images: any[];
+  product_details: any[];
+  warranties: any[];
 }
