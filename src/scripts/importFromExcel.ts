@@ -3,136 +3,164 @@ import { db } from '../config/database';
 import path from 'path';
 import fs from 'fs';
 
+interface ExcelCategoryRow {
+  name: string;
+  image?: string;
+  id_categories?: number;
+}
+
+interface ExcelManufacturerRow {
+  name: string;
+  address?: string;
+  phone?: string;
+}
+
 interface ExcelProductRow {
   name: string;
-  price: number;
-  product_category_ids: number | number[];
-  sku?: string;
   description?: string;
+  id_categories: number;
+  price: number;
   is_active?: boolean;
-  manufacturer_id?: number | null;
-  main_image_url?: string | null;
+  manufacturer_id?: number;
+  main_image_url?: string;
   stock?: number;
-  weight?: number | null;
-  dimensions?: string | null;
+  sku?: string;
+  weight?: number;
+  dimensions?: string;
   quantity?: number;
 }
 
-async function importProductsFromExcel(filePath: string) {
+// Export function để có thể import từ file khác
+export async function importDataFromExcel(filePath: string) {
   if (!filePath.endsWith('.xlsx') && !filePath.endsWith('.xls')) {
     throw new Error('Invalid file format. Please provide an .xlsx or .xls file');
   }
+
   try {
-    // Đọc file Excel
     const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    
-    // Chuyển đổi thành JSON
-    const data = XLSX.utils.sheet_to_json(worksheet);
-    
     const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    
-    console.log(`Bắt đầu import ${data.length} sản phẩm`);
-    let successCount = 0;
-    let errorCount = 0;
-        await db.transaction().execute(async (trx) => {
-      // Fix 1: Type the data array explicitly
-      const typedData = data as ExcelProductRow[];
+
+    // Import Categories
+    if (workbook.SheetNames.includes('Categories')) {
+      const categoriesSheet = workbook.Sheets['Categories'];
+      const categoriesData = XLSX.utils.sheet_to_json(categoriesSheet) as ExcelCategoryRow[];
       
-      // Fix 2: Use Promise.all for parallel async operations
-      await Promise.all(typedData.map(async (row, index) => {
+      console.log(`Importing ${categoriesData.length} categories...`);
+      for (const category of categoriesData) {
         try {
-          if (!row.name || !row.price || !row.product_category_ids) {
-            throw new Error(`Missing required fields for product at row ${index + 1}. Required: name, price, product_category_ids`);
-          }
-          
-          // Tạo sản phẩm
-          const productResult = await trx.insertInto('products')
+          await db.insertInto('categories')
             .values({
-              name: row.name,
-              price: row.price,
-              sku: row.sku || null,
-              description: row.description || null,
-              is_active: row.is_active !== undefined ? row.is_active : true,
-              manufacturer_id: row.manufacturer_id || null,
-              main_image_url: row.main_image_url || null,
-              stock: row.stock || 0,
-              weight: row.weight || null,
-              dimensions: row.dimensions || null,
-              quantity: row.quantity || 0,
+              name: category.name,
+              image: category.image || null,
+              id_categories: category.id_categories || null,
               created_at: timestamp,
               updated_at: timestamp
             })
-            .executeTakeFirst();
-          
-          const productId = Number(productResult.insertId);
-          
-          // Xử lý danh mục sản phẩm
-          const categoryIds = Array.isArray(row.product_category_ids) 
-            ? row.product_category_ids 
-            : [row.product_category_ids];
-          
-          await Promise.all(categoryIds.map(categoryId => 
-            trx.insertInto('product_category_relations')
-              .values({
-                product_id: productId,
-                product_category_id: categoryId,
-                created_at: timestamp
-              })
-              .execute()
-          ));
-          
-          console.log(`Đã tạo sản phẩm ${row.name} thành công`);
-          successCount++;
-          console.log(`(${index+1}/${data.length}) Đã xử lý sản phẩm ${row.name}`);
+            .execute();
         } catch (error) {
-          errorCount++;
-          console.error(`Lỗi khi xử lý sản phẩm ${row.name}:`, error);
+          console.log(`Category "${category.name}" đã tồn tại, bỏ qua...`);
         }
-      }));
-    });
-    
-    console.log(`Kết thúc import: ${successCount} thành công, ${errorCount} lỗi`);
-    console.log('Import từ Excel thành công!');
+      }
+      console.log('Categories import completed!');
+    }
+
+    // Import Manufacturers
+    if (workbook.SheetNames.includes('Manufacturers')) {
+      const manufacturersSheet = workbook.Sheets['Manufacturers'];
+      const manufacturersData = XLSX.utils.sheet_to_json(manufacturersSheet) as ExcelManufacturerRow[];
+      
+      console.log(`Importing ${manufacturersData.length} manufacturers...`);
+      for (const manufacturer of manufacturersData) {
+        try {
+          await db.insertInto('manufacturers')
+            .values({
+              name: manufacturer.name,
+              address: manufacturer.address || null,
+              phone: manufacturer.phone || null,
+              created_at: timestamp,
+              updated_at: timestamp
+            })
+            .execute();
+        } catch (error) {
+          console.log(`Manufacturer "${manufacturer.name}" đã tồn tại, bỏ qua...`);
+        }
+      }
+      console.log('Manufacturers import completed!');
+    }
+
+    // Import Products
+    if (workbook.SheetNames.includes('Products')) {
+      const productsSheet = workbook.Sheets['Products'];
+      const productsData = XLSX.utils.sheet_to_json(productsSheet) as ExcelProductRow[];
+      
+      console.log(`Importing ${productsData.length} products...`);
+      for (const product of productsData) {
+        try {
+          await db.insertInto('products')
+            .values({
+              name: product.name,
+              description: product.description || null,
+              id_categories: product.id_categories,
+              price: product.price,
+              is_active: product.is_active !== undefined ? product.is_active : true,
+              manufacturer_id: product.manufacturer_id || null,
+              main_image_url: product.main_image_url || null,
+              stock: product.stock || 0,
+              sku: product.sku || null,
+              weight: product.weight || null,
+              dimensions: product.dimensions || null,
+              quantity: product.quantity || 0,
+              created_at: timestamp,
+              updated_at: timestamp
+            })
+            .execute();
+        } catch (error) {
+          console.log(`Product "${product.name}" (SKU: ${product.sku}) đã tồn tại, bỏ qua...`);
+        }
+      }
+      console.log('Products import completed!');
+    }
+
+    console.log('All data import completed successfully!');
   } catch (error) {
-    console.error('Lỗi khi import từ Excel:', error);
+    console.error('Error during import:', error);
+    throw error;
   } finally {
     await db.destroy();
   }
 }
 
-// Sử dụng: node dist/scripts/importFromExcel.js path/to/excel/file.xlsx
-// Wrap the execution in an async function
-(async () => {
+// Chỉ chạy trực tiếp khi file được gọi trực tiếp
+if (require.main === module) {
+  (async () => {
     const excelFilePath = process.argv[2];
     let finalPath = '';
-  
+
     if (excelFilePath && fs.existsSync(excelFilePath)) {
       finalPath = path.resolve(excelFilePath);
     } else {
       const possiblePaths = [
-        path.join(__dirname, 'products.xlsx'),
-        path.join('D:\\duan\\products.xlsx'),
-        path.join(process.cwd(), 'products.xlsx')
+        path.join(__dirname, 'data.xlsx'),
+        path.join(process.cwd(), 'data.xlsx')
       ];
-  
+
       for (const possiblePath of possiblePaths) {
         if (fs.existsSync(possiblePath)) {
           finalPath = possiblePath;
           break;
         }
       }
-  
+
       if (!finalPath) {
-        console.error('Không tìm thấy file Excel. Vui lòng kiểm tra đường dẫn.');
+        console.error('Excel file not found. Please provide a valid path.');
         process.exit(1);
       }
     }
-  
+
     console.log(`Found Excel file at: ${finalPath}`);
-    await importProductsFromExcel(finalPath);
+    await importDataFromExcel(finalPath);
   })().catch(err => {
     console.error('Error in import script:', err);
     process.exit(1);
   });
+}

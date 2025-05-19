@@ -3,87 +3,89 @@ import { db } from '../config/database';
 import fs from 'fs';
 import path from 'path';
 
-async function exportProductsToExcel() {
+async function exportDataToExcel() {
   try {
-    // Get all products with their categories
-    const products = await db.selectFrom('products')
-      .leftJoin(
-        'product_category_relations as pcr',
-        'pcr.product_id',
-        'products.id'
-      )
-      .leftJoin(
-        'categories',
-        'categories.id',
-        'pcr.product_category_id'
-      )
+    // Export Categories
+    const categories = await db.selectFrom('categories')
       .select([
-        'products.id',
-        'products.name',
-        'products.price',
-        'products.sku',
-        'products.description',
-        'products.stock',
-        'products.quantity',
-        'products.manufacturer_id',
-        'products.created_at',
-        'products.updated_at',
-        'categories.id as category_id',
-        'categories.name as category_name'
+        'id',
+        'name',
+        'image',
+        'id_categories',
+        'created_at',
+        'updated_at'
       ])
       .execute();
 
-    // Group products with their categories
-    const productMap = new Map<number, any>();
-    
-    products.forEach(product => {
-      if (!productMap.has(product.id)) {
-        productMap.set(product.id, {
-          ...product,
-          categories: [],
-          product_category_ids: [],
-          category_names: []
-        });
-      }
-      
-      const currentProduct = productMap.get(product.id);
-      
-      if (product.category_id) {
-        currentProduct.categories.push({
-          id: product.category_id,
-          name: product.category_name
-        });
-        currentProduct.product_category_ids.push(product.category_id);
-        currentProduct.category_names.push(product.category_name);
-      }
-    });
+    // Export Manufacturers
+    const manufacturers = await db.selectFrom('manufacturers')
+      .select([
+        'id',
+        'name',
+        'address',
+        'phone',
+        'created_at',
+        'updated_at'
+      ])
+      .execute();
 
-    const formattedProducts = Array.from(productMap.values());
+    // Export Products
+    const products = await db.selectFrom('products')
+      .select([
+        'id',
+        'name',
+        'description',
+        'id_categories',
+        'price',
+        'is_active',
+        'manufacturer_id',
+        'main_image_url',
+        'stock',
+        'sku',
+        'weight',
+        'dimensions',
+        'quantity',
+        'created_at',
+        'updated_at'
+      ])
+      .execute();
 
-    if (!formattedProducts.length) {
-      console.log('Không có sản phẩm nào để xuất.');
-      return;
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Add Categories sheet
+    if (categories.length > 0) {
+      const categoriesSheet = XLSX.utils.json_to_sheet(categories);
+      XLSX.utils.book_append_sheet(workbook, categoriesSheet, 'Categories');
     }
 
-    // Use formattedProducts for the Excel export
-    const worksheet = XLSX.utils.json_to_sheet(formattedProducts);
+    // Add Manufacturers sheet
+    if (manufacturers.length > 0) {
+      const manufacturersSheet = XLSX.utils.json_to_sheet(manufacturers);
+      XLSX.utils.book_append_sheet(workbook, manufacturersSheet, 'Manufacturers');
+    }
 
-    // Tạo workbook và thêm worksheet
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+    // Add Products sheet
+    if (products.length > 0) {
+      const productsSheet = XLSX.utils.json_to_sheet(products);
+      XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products');
+    }
 
-    // Tạo đường dẫn lưu file
-    const exportPath = path.resolve(__dirname, 'D:\\duan\\products.xlsx');
+    // Create export path
+    const exportPath = path.resolve('D:\\duan\\data.xlsx');
     fs.mkdirSync(path.dirname(exportPath), { recursive: true });
 
-    // Ghi file Excel
+    // Write Excel file
     XLSX.writeFile(workbook, exportPath);
-    console.log(`Đã xuất Excel thành công tại: ${exportPath}`);
+    console.log(`Data exported successfully to: ${exportPath}`);
+    console.log(`Categories exported: ${categories.length}`);
+    console.log(`Manufacturers exported: ${manufacturers.length}`);
+    console.log(`Products exported: ${products.length}`);
   } catch (error) {
-    console.error('Lỗi khi xuất Excel:', error);
+    console.error('Error during export:', error);
   } finally {
     await db.destroy();
   }
 }
 
-exportProductsToExcel();
+exportDataToExcel();
